@@ -4,8 +4,8 @@
 #ifndef TESTING
 
 # define ASSERT( e ) (void)0
-# define TEST( name ) static void name()
-# define TEST_FAILING( name ) static void name()
+# define TEST( name ) static void unitTest_ ## name()
+# define TEST_FAILING( name ) static void unitTest_ ## name()
 
 #else
 
@@ -24,18 +24,18 @@ struct TestInfo *testInfo();
     } } while( 0 )
 
 # define TEST( name )                                                   \
-    void name();                                                        \
+    void unitTest_ ## name();                                           \
     __attribute__((constructor)) static void testRegister ## name() {   \
-        testRegister( name, #name, 0 );                                 \
+        testRegister( unitTest_ ## name, #name, 0 );                    \
     }                                                                   \
-    void name()                            
+    void unitTest_ ## name()                            
 
 # define TEST_FAILING( name )                                           \
-    void name();                                                        \
+    void unitTest_ ## name();                                           \
     __attribute__((constructor)) static void testRegister ## name() {   \
-        testRegister( name, #name, 1 );                                 \
+        testRegister( unitTest_ ## name, #name, 1 );                    \
     }                                                                   \
-    void name()                            
+    void unitTest_ ## name()                            
 
 #if defined( TESTING_MAIN ) && defined( TESTING_NO_MAIN )
 # error "Cannot specify both TESTING_MAIN and TESTING_NO_MAIN."
