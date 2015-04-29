@@ -83,7 +83,7 @@ void testInternalError() {
 #elif defined(_WIN32)
     char *msg;
 
-    FormatMessage(
+    FormatMessageA(
         FORMAT_MESSAGE_ALLOCATE_BUFFER |
         FORMAT_MESSAGE_FROM_SYSTEM |
         FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -320,7 +320,7 @@ static void testExecute( TestRunner run ) {
     SetHandleInformation( childOutRead, HANDLE_FLAG_INHERIT, 0 );
 
     PROCESS_INFORMATION procInfo;
-    STARTUPINFO startInfo;
+    STARTUPINFOA startInfo;
 
     ZeroMemory( &procInfo, sizeof( procInfo ) );
     ZeroMemory( &startInfo, sizeof( startInfo ) );
@@ -332,7 +332,7 @@ static void testExecute( TestRunner run ) {
     char *command = malloc( strlen( testProgramName ) + strlen( testSwitch ) + 16 );
     sprintf( command, "\"%s\" %s %i %i", testProgramName, testSwitch, testInfo()->id, testInfo()->order );
 
-    if ( !CreateProcess(
+    if ( !CreateProcessA(
         testProgramName,
         command,
         NULL,
@@ -347,7 +347,7 @@ static void testExecute( TestRunner run ) {
         testInternalError();
 
     WaitForSingleObject( procInfo.hProcess, INFINITE );
-    unsigned long childResult;
+    DWORD childResult;
     GetExitCodeProcess( procInfo.hProcess, &childResult );
     CloseHandle( procInfo.hProcess );
     CloseHandle( procInfo.hThread );
@@ -358,7 +358,7 @@ static void testExecute( TestRunner run ) {
         testInfo()->signal = 0;
     }
     else {
-        int read;
+        DWORD read;
         ReadFile( childOutRead, testInfo(), sizeof( struct TestInfo ), &read, NULL );
     }
 }
