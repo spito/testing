@@ -69,7 +69,7 @@ struct TestInfo *testInfo();
 
 #if defined( _WIN32 )
 # include <Windows.h>
-#elif defined( __unix )
+#elif defined( __unix ) || defined(__APPLE__)
 # include <unistd.h>
 # include <sys/wait.h>
 # include <sys/types.h>
@@ -98,7 +98,7 @@ struct TestInfo {
     int returnCode;
 #if defined( _WIN32 )
     HANDLE pipeEnd;
-#elif defined( __unix )
+#elif defined( __unix ) || defined(__APPLE__)
     int pipeEnd;
 #endif
     const char *errStatement;
@@ -151,7 +151,7 @@ NORETURN void testFinish() {
     free( testAll );
     ExitProcess( 0 );
 }
-#elif defined(__unix)
+#elif defined(__unix) || defined(__APPLE__)
 NORETURN void testFinish() {
     int r;
     r = write( testInfo()->pipeEnd, testInfo(), sizeof( struct TestInfo ) );
@@ -223,7 +223,7 @@ static int printDefail( FILE *output ) {
     return failed;
 }
 
-#if defined( __unix)
+#if defined( __unix) || defined(__APPLE__)
 static void testExecute( TestRunner run ) {
 
     int r;
@@ -290,6 +290,8 @@ NORETURN static void testExecuteUnit( int id, int order ) {
 }
 
 static void testExecute( TestRunner run ) {
+    (void)run;
+
     SECURITY_ATTRIBUTES saAttr;
     saAttr.nLength = sizeof( saAttr );
     saAttr.bInheritHandle = TRUE;
@@ -328,7 +330,7 @@ static void testExecute( TestRunner run ) {
         testInternalError();
 
     WaitForSingleObject( procInfo.hProcess, INFINITE );
-    int childResult;
+    unsigned long childResult;
     GetExitCodeProcess( procInfo.hProcess, &childResult );
     CloseHandle( procInfo.hProcess );
     CloseHandle( procInfo.hThread );
