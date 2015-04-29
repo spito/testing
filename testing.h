@@ -78,7 +78,24 @@ struct TestInfo *testInfo();
 #endif
 
 void testInternalError() {
+#if defined(__unix) || defined(__APPLE__)
     perror( "Internal error occurred inside testing framework." );
+#elif defined(_WIN32)
+    char *msg;
+
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        GetLastError(),
+        MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ),
+        (LPSTR)&msg,
+        0, NULL );
+
+    fprintf( stderr, "Internal error occurred inside testing framework.: %s\n", msg );
+    LocalFree( msg );
+#endif
     exit( -1 );
 }
 
