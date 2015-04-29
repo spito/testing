@@ -330,10 +330,10 @@ static void testExecute( TestRunner run ) {
     startInfo.hStdOutput = childOutWrite;
 
     char *command = malloc( strlen( testProgramName ) + strlen( testSwitch ) + 16 );
-    sprintf( command, "%s %s %i %i", testProgramName, testSwitch, testInfo()->id, testInfo()->order );
+    sprintf( command, "\"%s\" %s %i %i", testProgramName, testSwitch, testInfo()->id, testInfo()->order );
 
     if ( !CreateProcess(
-        NULL,
+        testProgramName,
         command,
         NULL,
         NULL,
@@ -357,8 +357,10 @@ static void testExecute( TestRunner run ) {
         testInfo()->returnCode = childResult;
         testInfo()->signal = 0;
     }
-    else
-        ReadFile( childOutRead, testInfo(), sizeof( struct TestInfo ), NULL, NULL );
+    else {
+        int read;
+        ReadFile( childOutRead, testInfo(), sizeof( struct TestInfo ), &read, NULL );
+    }
 }
 #endif
 
