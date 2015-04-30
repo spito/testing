@@ -4,6 +4,7 @@
 #ifndef TESTING
 
 # define ASSERT( e ) (void)0
+# define ASSERT_FILE( f, content ) (void)0
 # define TEST( name ) static void unitTest_ ## name()
 # define TEST_FAILING( name ) static void unitTest_ ## name()
 
@@ -19,19 +20,24 @@
 # define NORETURN
 #endif
 
+#include <stdio.h>
+
 typedef void(*TestRunner)();
 
 struct TestInfo;
 
 void testRegister( TestRunner run, const char *name, int failing );
 NORETURN void testFinish();
+int testFile( FILE *f, const char *content );
 void testFillInfo( const char *stm, const char *file, int line );
 struct TestInfo *testInfo();
 
 #if defined(__GNUC__) || defined(__clang)
 
 # define CONSTRUCTOR(name) __attribute__((constructor)) static void name()
+
 #elif defined(_MSC_VER)
+
 # pragma section(".CRT$XCU",read)
 # define CONSTRUCTOR(name)                                                    \
     static void __cdecl name( void );                                         \
@@ -46,6 +52,12 @@ struct TestInfo *testInfo();
         testFillInfo( #e, __FILE__, __LINE__ );                         \
         testFinish();                                                   \
     } } while( 0 )
+
+# define ASSERT_FILE( f, content ) do {                                 \
+        if ( !testFile( f, content ) ) {                                \
+            testFillInfo( "content of file is not equal", __FILE__, __LINE__ ); \
+            testFinish();                                               \
+        } } while( 0 )
 
 # define TEST( name )                                                   \
     void unitTest_ ## name();                                           \
@@ -69,6 +81,7 @@ struct TestInfo *testInfo();
 
 #if defined( _WIN32 )
 # include <Windows.h>
+# include <io.h>
 #elif defined( __unix ) || defined(__APPLE__)
 # include <unistd.h>
 # include <sys/wait.h>
@@ -113,11 +126,7 @@ struct TestInfo {
     enum TestResult result;
     int signal;
     int returnCode;
-#if defined( _WIN32 )
-    HANDLE pipeEnd;
-#elif defined( __unix ) || defined(__APPLE__)
     int pipeEnd;
-#endif
     const char *errStatement;
     const char *errFile;
     int errLine;
@@ -160,10 +169,34 @@ void testRegister( TestRunner run, const char *name, int failing ) {
     ++testIndex;
 }
 #if defined(_WIN32)
+int testFile( FILE *f, const char *content ) {
+    int result = 0;
+    size_t length = strlen( content );
+    _flushall();
+    int fd = _fileno( f );
+    char *buf = NULL;
+
+    long offset = _lseek( fd, 0, SEEK_CUR );
+    if ( _lseek( fd, 0, SEEK_END ) != length )
+        goto leave;
+
+    _lseek( fd, 0, SEEK_SET );
+    buf = (char*)malloc( length );
+    _read( fd, buf, length );
+
+    result = memcmp( content, buf, length ) == 0;
+leave:
+    _lseek( fd, offset, SEEK_SET );
+    free( buf );
+    return result;
+}
+#endif
+
+#if defined(_WIN32)
 NORETURN void testFinish() {
     int r;
-    r = fwrite( testInfo(), sizeof( struct TestInfo ), 1, stdout );
-    if ( r != 1 )
+    r = _write( testInfo()->pipeEnd, testInfo(), sizeof( struct TestInfo ) );
+    if ( r != sizeof( struct TestInfo ) )
         testInternalError();
     free( testAll );
     ExitProcess( 0 );
@@ -301,6 +334,11 @@ NORETURN static void testExecuteUnit( int id, int order ) {
     testInfo()->errStatement = "";
     testInfo()->errFile = "";
     testInfo()->errLine = 0;
+
+    testInfo()->pipeEnd = _dup( 1 );
+
+    _dup2( _fileno( tmpfile() ), 1 ); // redirect stdout
+    _dup2( _fileno( tmpfile() ), 2 ); // redirect stderr
 
     testAll[ id ].run();
     testFinish();
