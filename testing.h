@@ -341,6 +341,8 @@ static void testExecute( TestRunner run ) {
             testInternalError();
 
         testInfo()->pipeEnd = pipefd[ 1 ];
+        dup2( fileno( tmpfile() ), 1 ); // redirect stdout
+        dup2( fileno( tmpfile() ), 2 ); // redirect stderr
         run();
 
         testFinish();
