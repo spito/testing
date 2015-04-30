@@ -174,7 +174,7 @@ void testRegister( TestRunner run, const char *name, int failing ) {
 #if defined(_WIN32)
 int testFile( FILE *f, const char *content ) {
     int result = 0;
-    size_t length = strlen( content );
+    long length = strlen( content );
     _flushall();
     int fd = _fileno( f );
     char *buf = NULL;
