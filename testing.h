@@ -18,6 +18,7 @@
 # define INLINE
 #else
 # define NORETURN
+# define INLINE
 #endif
 
 #include <stdio.h>
@@ -39,38 +40,38 @@ struct TestInfo *testInfo();
 #elif defined(_MSC_VER)
 
 # pragma section(".CRT$XCU",read)
-# define CONSTRUCTOR(name)                                                    \
-    static void __cdecl name( void );                                         \
-    __declspec(allocate(".CRT$XCU")) void (__cdecl * name ## _)(void) = name; \
+# define CONSTRUCTOR(name)                                                      \
+    static void __cdecl name( void );                                           \
+    __declspec(allocate(".CRT$XCU")) void (__cdecl * name ## _)(void) = name;   \
     static void __cdecl name( void )
 
 #else
 # error "unsupported compiler"
 #endif
 
-# define ASSERT( e ) do { if ( !(e) ) {                                 \
-        testFillInfo( #e, __FILE__, __LINE__ );                         \
-        testFinish();                                                   \
+# define ASSERT( e ) do { if ( !(e) ) {                                         \
+        testFillInfo( #e, __FILE__, __LINE__ );                                 \
+        testFinish();                                                           \
     } } while( 0 )
 
-# define ASSERT_FILE( f, content ) do {                                 \
-        if ( !testFile( f, content ) ) {                                \
-            testFillInfo( "content of file is not equal", __FILE__, __LINE__ ); \
-            testFinish();                                               \
-        } } while( 0 )
+# define ASSERT_FILE( f, content ) do {                                         \
+    if ( !testFile( f, content ) ) {                                            \
+        testFillInfo( "content of file is not equal", __FILE__, __LINE__ );     \
+        testFinish();                                                           \
+    } } while( 0 )
 
-# define TEST( name )                                                   \
-    void unitTest_ ## name();                                           \
-    CONSTRUCTOR( testRegister ## name ) {                               \
-        testRegister( unitTest_ ## name, #name, 0 );                    \
-    }                                                                   \
+# define TEST( name )                                                           \
+    void unitTest_ ## name();                                                   \
+    CONSTRUCTOR( testRegister ## name ) {                                       \
+        testRegister( unitTest_ ## name, #name, 0 );                            \
+    }                                                                           \
     void unitTest_ ## name()                            
 
-# define TEST_FAILING( name )                                           \
-    void unitTest_ ## name();                                           \
-    CONSTRUCTOR( testRegister ## name ) {                               \
-        testRegister( unitTest_ ## name, #name, 1 );                    \
-    }                                                                   \
+# define TEST_FAILING( name )                                                   \
+    void unitTest_ ## name();                                                   \
+    CONSTRUCTOR( testRegister ## name ) {                                       \
+        testRegister( unitTest_ ## name, #name, 1 );                            \
+    }                                                                           \
     void unitTest_ ## name()                            
 
 #if defined( TESTING_MAIN )
