@@ -24,6 +24,34 @@ TEST( test2 ) {
     ASSERT( 0 );
 }
 
+TEST( test_output ) {
+    printf("blabla");
+    testFile(stdout, "blabla");
+    printf("x");
+    testFile(stdout, "blablax");
+}
+
+TEST( test_output_fprinf ) {
+    fprintf(stdout, "blabla");
+    testFile(stdout, "blabla");
+    fprintf(stdout, "x");
+    testFile(stdout, "blablax");
+}
+
+TEST( test_error ) {
+    printf("blabla");
+    testFile(stderr, "blabla");
+    printf("x");
+    testFile(stderr, "blablax");
+}
+
+TEST( test_error_fprinf ) {
+    fprintf(stderr, "blabla");
+    testFile(stderr, "blabla");
+    fprintf(stderr, "x");
+    testFile(stderr, "blablax");
+}
+
 TEST_FAILING( test3 ) {
     foo();
 }
