@@ -21,6 +21,8 @@
 # define INLINE
 #endif
 
+#define _POSIX_C_SOURCE 1
+
 #include <stdio.h>
 
 typedef void(*TestRunner)();
@@ -191,6 +193,28 @@ leave:
     free( buf );
     return result;
 }
+#elif defined(__unix) || defined(__APPLE__)
+int testFile( FILE *f, const char *content ) {
+    int result = 0;
+    size_t length = strlen( content );
+    int fd = fileno( f );
+    fflush(f);
+    char *buf = NULL;
+
+    long offset = lseek( fd, 0, SEEK_CUR );
+    if ( (size_t) lseek( fd, 0, SEEK_END ) != length )
+        goto leave;
+
+    lseek( fd, 0, SEEK_SET );
+    buf = (char*)malloc( length );
+    read( fd, buf, length );
+
+    result = memcmp( content, buf, length ) == 0;
+leave:
+    lseek( fd, offset, SEEK_SET );
+    free( buf );
+    return result;
+}
 #endif
 
 #if defined(_WIN32)
@@ -317,6 +341,8 @@ static void testExecute( TestRunner run ) {
             testInternalError();
 
         testInfo()->pipeEnd = pipefd[ 1 ];
+        dup2( fileno( tmpfile() ), 1 ); // redirect stdout
+        dup2( fileno( tmpfile() ), 2 ); // redirect stderr
         run();
 
         testFinish();
