@@ -76,7 +76,7 @@ struct TestInfo *testInfo();
     }                                                                           \
     void unitTest_ ## name()                            
 
-#if defined( TESTING_MAIN )
+#if defined(TESTING_MAIN)
 
 #include <string.h>
 #include <stdio.h>
@@ -85,6 +85,7 @@ struct TestInfo *testInfo();
 #if defined( _WIN32 )
 # include <Windows.h>
 # include <io.h>
+# include <fcntl.h>
 #elif defined( __unix ) || defined(__APPLE__)
 # include <unistd.h>
 # include <sys/wait.h>
@@ -363,7 +364,8 @@ NORETURN static void testExecuteUnit( int id, int order ) {
     testInfo()->errLine = 0;
 
     testInfo()->pipeEnd = _dup( 1 );
-
+    _setmode( testInfo()->pipeEnd, _O_BINARY );
+    
     _dup2( _fileno( tmpfile() ), 1 ); // redirect stdout
     _dup2( _fileno( tmpfile() ), 2 ); // redirect stderr
 
