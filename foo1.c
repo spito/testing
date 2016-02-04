@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "testing.h"
 
 void foo() {
@@ -26,30 +27,30 @@ TEST( test2 ) {
 
 TEST( test_output ) {
     printf("blabla");
-    testFile(stdout, "blabla");
+    ASSERT_FILE(stdout, "blabla");
     printf("x");
-    testFile(stdout, "blablax");
+    ASSERT_FILE(stdout, "blablax");
 }
 
 TEST( test_output_fprinf ) {
     fprintf(stdout, "blabla");
-    testFile(stdout, "blabla");
+    ASSERT_FILE(stdout, "blabla");
     fprintf(stdout, "x");
-    testFile(stdout, "blablax");
+    ASSERT_FILE(stdout, "blablax");
 }
 
 TEST( test_error ) {
     printf("blabla");
-    testFile(stderr, "blabla");
+    ASSERT_FILE(stderr, "blabla");
     printf("x");
-    testFile(stderr, "blablax");
+    ASSERT_FILE(stderr, "blablax");
 }
 
 TEST( test_error_fprinf ) {
     fprintf(stderr, "blabla");
-    testFile(stderr, "blabla");
+    ASSERT_FILE(stderr, "blabla");
     fprintf(stderr, "x");
-    testFile(stderr, "blablax");
+    ASSERT_FILE(stderr, "blablax");
 }
 
 TEST_FAILING( test3 ) {
