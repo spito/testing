@@ -146,6 +146,8 @@ static int testIndex = 0;
 static int testCapacity = 0;
 static struct TestItem *testAll = NULL;
 static struct TestInfo info;
+static FILE *testTmpOut = NULL;
+static FILE *testTmpErr = NULL;
 #if defined( _WIN32 )
 static const char *testProgramName = NULL;
 static const char *testSwitch = "--test-id";
@@ -225,6 +227,10 @@ NORETURN void testFinish() {
     if ( r != sizeof( struct TestInfo ) )
         testInternalError();
     free( testAll );
+    if ( testTmpOut )
+        fclose( testTmpOut );
+    if ( testTmpErr )
+        fclose( testTmpErr );
     ExitProcess( 0 );
 }
 #elif defined(__unix) || defined(__APPLE__)
@@ -238,6 +244,10 @@ NORETURN void testFinish() {
         testInternalError();
 
     free( testAll );
+    if ( testTmpOut )
+        fclose( testTmpOut );
+    if ( testTmpErr )
+        fclose( testTmpErr );
     exit( 0 );
 }
 #endif
@@ -342,8 +352,10 @@ static void testExecute( TestRunner run ) {
             testInternalError();
 
         testInfo()->pipeEnd = pipefd[ 1 ];
-        dup2( fileno( tmpfile() ), 1 ); // redirect stdout
-        dup2( fileno( tmpfile() ), 2 ); // redirect stderr
+        testTmpOut = tmpfile();
+        testTmpErr = tmpfile();
+        dup2( fileno( testTmpOut ), 1 ); // redirect stdout
+        dup2( fileno( testTmpErr ), 2 ); // redirect stderr
         run();
 
         testFinish();
@@ -366,8 +378,11 @@ NORETURN static void testExecuteUnit( int id, int order ) {
     testInfo()->pipeEnd = _dup( 1 );
     _setmode( testInfo()->pipeEnd, _O_BINARY );
     
-    _dup2( _fileno( tmpfile() ), 1 ); // redirect stdout
-    _dup2( _fileno( tmpfile() ), 2 ); // redirect stderr
+    
+    testTmpOut = tmpfile();
+    testTmpErr = tmpfile();
+    _dup2( _fileno( testTmpOut() ), 1 ); // redirect stdout
+    _dup2( _fileno( testTmpErr() ), 2 ); // redirect stderr
 
     testAll[ id ].run();
     testFinish();
@@ -399,19 +414,18 @@ static void testExecute( TestRunner run ) {
     char *command = malloc( strlen( testProgramName ) + strlen( testSwitch ) + 16 );
     sprintf( command, "\"%s\" %s %i %i", testProgramName, testSwitch, testInfo()->id, testInfo()->order );
 
-    if ( !CreateProcessA(
-        testProgramName,
-        command,
-        NULL,
-        NULL,
-        TRUE,
-        0,
-        NULL,
-        NULL,
-        &startInfo,
-        &procInfo
-        ) )
+    if ( !CreateProcessA( testProgramName,
+                          command,
+                          NULL,
+                          NULL,
+                          TRUE,
+                          0,
+                          NULL,
+                          NULL,
+                          &startInfo,
+                          &procInfo ) ) {
         testInternalError();
+    }
 
     WaitForSingleObject( procInfo.hProcess, INFINITE );
     DWORD childResult;
