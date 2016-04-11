@@ -67,14 +67,14 @@ struct TestInfo *testInfo();
     CONSTRUCTOR( testRegister ## name ) {                                       \
         testRegister( unitTest_ ## name, #name, 0 );                            \
     }                                                                           \
-    void unitTest_ ## name()                            
+    void unitTest_ ## name()
 
 # define TEST_FAILING( name )                                                   \
     void unitTest_ ## name();                                                   \
     CONSTRUCTOR( testRegister ## name ) {                                       \
         testRegister( unitTest_ ## name, #name, 1 );                            \
     }                                                                           \
-    void unitTest_ ## name()                            
+    void unitTest_ ## name()
 
 #if defined(TESTING_MAIN)
 
@@ -317,7 +317,7 @@ static void testExecute( TestRunner run ) {
     r = pipe( pipefd );
     if ( r != 0 )
         testInternalError();
-        
+
     int pid = fork();
     if ( r == -1 )
         testInternalError();
@@ -377,12 +377,12 @@ NORETURN static void testExecuteUnit( int id, int order ) {
 
     testInfo()->pipeEnd = _dup( 1 );
     _setmode( testInfo()->pipeEnd, _O_BINARY );
-    
-    
+
+
     testTmpOut = tmpfile();
     testTmpErr = tmpfile();
-    _dup2( _fileno( testTmpOut() ), 1 ); // redirect stdout
-    _dup2( _fileno( testTmpErr() ), 2 ); // redirect stderr
+    _dup2( _fileno( testTmpOut ), 1 ); // redirect stdout
+    _dup2( _fileno( testTmpErr ), 2 ); // redirect stderr
 
     testAll[ id ].run();
     testFinish();
