@@ -6,7 +6,7 @@ void foo() {
     ASSERT( 0 );
 }
 
-TEST( test1 ) {
+TEST( test1_should_failed ) {
     int a = 0;
     ASSERT( a + 1 == 0 );
 }
@@ -21,7 +21,7 @@ TEST_FAILING(sig2) {
     *c = 'c';
 }
 
-TEST( test2 ) {
+TEST( test2_should_failed ) {
     ASSERT( 0 );
 }
 

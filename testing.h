@@ -272,10 +272,9 @@ static INLINE void fill( FILE *output, int n ) {
         putc( '.', output );
 }
 
-static int printDefail( FILE *output ) {
+static int printDefail( FILE *output, int base ) {
 
     int failed = 0;
-    int base = fprintf( output, "[%3i] %s", testInfo()->order, testInfo()->name );
     const char *msg = "OK";
 
     if ( testInfo()->result == testAbnormal ) {
@@ -478,8 +477,10 @@ static int testRun( FILE *output, int argc, const char **argv ) {
         testInfo()->errFile = "";
         testInfo()->errLine = 0;
 
+        int base = fprintf( output, "[%3i] %s", testInfo()->order, testInfo()->name );
+        fflush( output );
         testExecute( testAll[ i ].run );
-        failed += printDefail( output );
+        failed += printDefail( output, base );
     }
 
     fprintf( output,

@@ -6,5 +6,6 @@ TEST(a) {
 TEST(b) {
     ASSERT(2);
 }
-TEST(test4){
+TEST(test4) {
 }
+
