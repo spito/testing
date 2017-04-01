@@ -81,6 +81,7 @@ struct TestInfo *testInfo();
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #if defined( _WIN32 )
 # include <Windows.h>
@@ -94,9 +95,13 @@ struct TestInfo *testInfo();
 # error "unsupported platform"
 #endif
 
+#ifdef __linux__
+# include <sys/prctl.h>
+#endif
+
 void testInternalError() {
 #if defined(__unix) || defined(__APPLE__)
-    perror( "Internal error occurred inside testing framework." );
+    perror( "Internal error occurred inside testing framework" );
 #elif defined(_WIN32)
     char *msg;
 
@@ -110,10 +115,18 @@ void testInternalError() {
         (LPSTR)&msg,
         0, NULL );
 
-    fprintf( stderr, "Internal error occurred inside testing framework.: %s\n", msg );
+    fprintf( stderr, "Internal error occurred inside testing framework: %s\n", msg );
     LocalFree( msg );
 #endif
     exit( -1 );
+}
+void testExplicitError(int eCode) {
+#if defined(__unix) || defined(__APPLE__)
+    errno = eCode;
+#elif defined(_WIN32)
+    SetLastError( eCode );
+#endif
+    testInternalError();
 }
 
 enum TestResult {
@@ -151,6 +164,7 @@ static FILE *testTmpErr = NULL;
 #if defined( _WIN32 )
 static const char *testProgramName = NULL;
 static const char *testSwitch = "--test-id";
+static HANDLE jobGroup;
 #endif
 
 struct TestInfo *testInfo() {
@@ -163,7 +177,7 @@ void testRegister( TestRunner run, const char *name, int failing ) {
         void *tmp = realloc( testAll, sizeof( struct TestItem ) * testCapacity );
         if ( !tmp ) {
             free( testAll );
-            fprintf( stderr, "Internal error occurred inside testing framework." );
+            testExplicitError( ENOMEM );
             exit( -1 );
         }
         testAll = tmp;
@@ -188,6 +202,8 @@ int testFile( FILE *f, const char *content ) {
 
     _lseek( fd, 0, SEEK_SET );
     buf = (char*)malloc( length );
+    if ( !buf )
+        testExplicitError( ENOMEM );
     _read( fd, buf, length );
 
     result = memcmp( content, buf, length ) == 0;
@@ -210,6 +226,8 @@ int testFile( FILE *f, const char *content ) {
 
     lseek( fd, 0, SEEK_SET );
     buf = (char*)malloc( length );
+    if ( !buf )
+        testExplicitError( ENOMEM );
     read( fd, buf, length );
 
     result = memcmp( content, buf, length ) == 0;
@@ -317,6 +335,7 @@ static void testExecute( TestRunner run ) {
     if ( r != 0 )
         testInternalError();
 
+    int parentPid = getpid();
     int pid = fork();
     if ( r == -1 )
         testInternalError();
@@ -346,7 +365,16 @@ static void testExecute( TestRunner run ) {
             testInternalError();
     }
     else { // child
-        close( pipefd[ 0 ] ); // disable reading
+// TODO: check parent in other *NIX platforms
+#if defined(__linux__)
+        r = prctl(PR_SET_PDEATHSIG, SIGTERM);
+        if ( r == -1 )
+            testInternalError();
+        if (getppid() != parentPid) {
+            testExplicitError( EPERM );
+        }
+#endif
+        r = close( pipefd[ 0 ] ); // disable reading
         if ( r == -1 )
             testInternalError();
 
@@ -425,6 +453,8 @@ static void testExecute( TestRunner run ) {
                           &procInfo ) ) {
         testInternalError();
     }
+    if ( !AssignProcessToJobObject( jobGroup, procInfo.hProcess ) )
+        testInternalError();
 
     WaitForSingleObject( procInfo.hProcess, INFINITE );
     DWORD childResult;
@@ -458,6 +488,16 @@ static int testRun( FILE *output, int argc, const char **argv ) {
                 testExecuteUnit( id, atoi( argv[ i + 2 ] ) );// noreturn
         }
     }
+
+    // create a group of processes to be able to kill unit when parent dies
+    jobGroup = CreateJobObject( NULL, NULL );
+    if ( !jobGroup )
+        testInternalError();
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    if ( !SetInformationJobObject( jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof( jeli ) ) )
+        testInternalError();
+
 #endif
 
     testInfo()->order = 0;
