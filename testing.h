@@ -1,6 +1,7 @@
 #ifndef TESTING_H
 #define TESTING_H
-
+//#define TESTING
+//#define TESTING_MAIN
 #ifndef TESTING
 
 # define ASSERT( e ) (void)0
@@ -446,7 +447,7 @@ static void testExecute( TestRunner run ) {
                           NULL,
                           NULL,
                           TRUE,
-                          0,
+                          CREATE_BREAKAWAY_FROM_JOB | CREATE_SUSPENDED,
                           NULL,
                           NULL,
                           &startInfo,
@@ -454,6 +455,8 @@ static void testExecute( TestRunner run ) {
         testInternalError();
     }
     if ( !AssignProcessToJobObject( jobGroup, procInfo.hProcess ) )
+        testInternalError();
+    if ( ResumeThread( procInfo.hThread ) != 1 )
         testInternalError();
 
     WaitForSingleObject( procInfo.hProcess, INFINITE );
