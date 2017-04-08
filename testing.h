@@ -1,7 +1,6 @@
 #ifndef TESTING_H
 #define TESTING_H
-//#define TESTING
-//#define TESTING_MAIN
+
 #ifndef TESTING
 
 # define ASSERT( e ) (void)0
@@ -100,7 +99,7 @@ struct TestInfo *testInfo();
 # include <sys/prctl.h>
 #endif
 
-void testInternalError() {
+NORETURN void testInternalError() {
 #if defined(__unix) || defined(__APPLE__)
     perror( "Internal error occurred inside testing framework" );
 #elif defined(_WIN32)
@@ -121,7 +120,7 @@ void testInternalError() {
 #endif
     exit( -1 );
 }
-void testExplicitError(int eCode) {
+NORETURN void testExplicitError(int eCode) {
 #if defined(__unix) || defined(__APPLE__)
     errno = eCode;
 #elif defined(_WIN32)
@@ -179,7 +178,6 @@ void testRegister( TestRunner run, const char *name, int failing ) {
         if ( !tmp ) {
             free( testAll );
             testExplicitError( ENOMEM );
-            exit( -1 );
         }
         testAll = tmp;
     }
@@ -371,9 +369,8 @@ static void testExecute( TestRunner run ) {
         r = prctl(PR_SET_PDEATHSIG, SIGTERM);
         if ( r == -1 )
             testInternalError();
-        if (getppid() != parentPid) {
+        if (getppid() != parentPid)
             testExplicitError( EPERM );
-        }
 #endif
         r = close( pipefd[ 0 ] ); // disable reading
         if ( r == -1 )
