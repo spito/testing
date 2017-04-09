@@ -187,6 +187,21 @@ void testRegister( TestRunner run, const char *name, int failing ) {
     testAll[ testIndex ].failing = failing;
     ++testIndex;
 }
+static int testReadWholeFile( int fd, char *buffer, size_t length ) {
+    while (length) {
+#if defined(_WIN32)
+        int rv = _read( fd, buffer, length );
+#elif defined(__unix) || defined(__APPLE__)
+        int rv = read( fd, buffer, length );
+#endif
+        if ( rv < 0 )
+            return -1;
+        buffer += rv;
+        length -= rv;
+    }
+    return 0;
+}
+
 #if defined(_WIN32)
 int testFile( FILE *f, const char *content ) {
     int result = 0;
@@ -203,7 +218,8 @@ int testFile( FILE *f, const char *content ) {
     buf = (char*)malloc( length );
     if ( !buf )
         testExplicitError( ENOMEM );
-    _read( fd, buf, length );
+    if ( testReadWholeFile( fd, buf, length ) )
+        testInternalError();
 
     result = memcmp( content, buf, length ) == 0;
 leave:
@@ -227,7 +243,8 @@ int testFile( FILE *f, const char *content ) {
     buf = (char*)malloc( length );
     if ( !buf )
         testExplicitError( ENOMEM );
-    read( fd, buf, length );
+    if ( testReadWholeFile( fd, buf, length ) )
+        testInternalError();
 
     result = memcmp( content, buf, length ) == 0;
 leave:
