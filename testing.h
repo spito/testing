@@ -362,7 +362,13 @@ static void testExecute( TestRunner run ) {
             testInternalError();
 
         int status = 0;
+#if defined(__APPLE__)
+        do {
+            r = waitpid( pid, &status, 0 );
+        } while (r == -1 && errno == EINTR);
+#else
         r = waitpid( pid, &status, 0 );
+#endif
         if ( r == -1 )
             testInternalError();
 
