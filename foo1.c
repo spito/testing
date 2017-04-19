@@ -7,6 +7,7 @@ void foo() {
 }
 
 TEST( test1_should_failed ) {
+    DEBUG_MSG( "some debug text" );
     int a = 0;
     ASSERT( a + 1 == 0 );
 }
@@ -30,6 +31,8 @@ TEST( test_output ) {
     ASSERT_FILE(stdout, "blabla");
     printf("x");
     ASSERT_FILE(stdout, "blablax");
+    DEBUG_MSG( "co to je? %d", 8 );
+    DEBUG_MSG( "cislo to bylo" );
 }
 
 TEST( test_output_fprinf ) {

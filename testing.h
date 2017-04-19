@@ -7,6 +7,7 @@
 # define ASSERT_FILE( f, content ) (void)0
 # define TEST( name ) static void unitTest_ ## name()
 # define TEST_FAILING( name ) static void unitTest_ ## name()
+# define DEBUG_MSG( ... ) (void)0
 
 #else
 
@@ -34,6 +35,7 @@ NORETURN void testFinish();
 int testFile( FILE *f, const char *content );
 void testFillInfo( const char *stm, const char *file, int line );
 struct TestInfo *testInfo();
+void testDebugMsg( const char *file, size_t line, const char *fmt, ... );
 
 #if defined(__GNUC__) || defined(__clang)
 
@@ -76,12 +78,15 @@ struct TestInfo *testInfo();
     }                                                                           \
     void unitTest_ ## name()
 
+# define DEBUG_MSG(...) testDebugMsg( __FILE__, __LINE__, __VA_ARGS__ )
+
 #if defined(TESTING_MAIN)
 
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stdarg.h>
 
 #if defined( _WIN32 )
 # include <Windows.h>
@@ -144,6 +149,7 @@ struct TestInfo {
     int signal;
     int returnCode;
     int pipeEnd;
+    int debugPipe;
     const char *errStatement;
     const char *errFile;
     int errLine;
@@ -161,6 +167,7 @@ static struct TestItem *testAll = NULL;
 static struct TestInfo info;
 static FILE *testTmpOut = NULL;
 static FILE *testTmpErr = NULL;
+static char *testDebug = NULL;
 #if defined( _WIN32 )
 static const char *testProgramName = NULL;
 static const char *testSwitch = "--test-id";
@@ -260,6 +267,7 @@ NORETURN void testFinish() {
     r = _write( testInfo()->pipeEnd, testInfo(), sizeof( struct TestInfo ) );
     if ( r != sizeof( struct TestInfo ) )
         testInternalError();
+
     free( testAll );
     if ( testTmpOut )
         fclose( testTmpOut );
@@ -339,15 +347,61 @@ static int printDefail( FILE *output, int base ) {
             fprintf( output, "\tassert '%s' on %s : %i\n", testInfo()->errStatement, testInfo()->errFile, testInfo()->errLine );
     }
 
+    if ( testDebug && *testDebug )
+        fprintf( output, "\tdebug messages:\n%s", testDebug );
+    if ( testDebug ) {
+        free( testDebug );
+        testDebug = NULL;
+    }
+
     return failed;
 }
 
-#if defined( __unix) || defined(__APPLE__)
+void testDebugMsg( const char *file, size_t line, const char *fmt, ... ) {
+    va_list argsPrepare;
+    va_list args;
+    va_start( argsPrepare, fmt );
+    va_copy( args, argsPrepare );
+    size_t textLength = 1 + vsnprintf( NULL, 0, fmt, argsPrepare );
+
+    char *text = malloc( textLength );
+    char *message = NULL;
+    if ( !text )
+        goto leave;
+
+    vsnprintf( text, textLength, fmt, args );
+
+    size_t messageLength = 1 + snprintf( NULL, 0, "\t\t%s (%s:%lu)\n", text, file, line );
+    message = malloc( messageLength );
+    if ( !message )
+        goto leave;
+
+    snprintf( message, messageLength, "\t\t%s (%s:%lu)\n", text, file, line );
+
+#if defined(__unix) || defined(__APPLE__)
+    write( testInfo()->debugPipe, message, messageLength - 1 );
+#elif defined(_WIN32)
+    _write( testInfo()->debugPipe, message, messageLength - 1 );
+#endif
+
+leave:
+    va_end( args );
+    va_end( argsPrepare );
+    free( text );
+    free( message );
+}
+
+#if defined(__unix) || defined(__APPLE__)
 static void testExecute( TestRunner run ) {
 
     int r;
     int pipefd[ 2 ];
     r = pipe( pipefd );
+    if ( r != 0 )
+        testInternalError();
+
+    int debugPipe[ 2 ];
+    r = pipe( debugPipe );
     if ( r != 0 )
         testInternalError();
 
@@ -361,11 +415,15 @@ static void testExecute( TestRunner run ) {
         if ( r == -1 )
             testInternalError();
 
+        r = close( debugPipe[ 1 ] ); // disable writing;
+        if ( r == -1 )
+            testInternalError();
+
         int status = 0;
 #if defined(__APPLE__)
         do {
             r = waitpid( pid, &status, 0 );
-        } while (r == -1 && errno == EINTR);
+        } while ( r == -1 && errno == EINTR );
 #else
         r = waitpid( pid, &status, 0 );
 #endif
@@ -382,6 +440,25 @@ static void testExecute( TestRunner run ) {
             if ( r != sizeof( struct TestInfo ) )
                 testInternalError();
         }
+        int capacity = 1024;
+        int size = 0;
+        testDebug = malloc( capacity );
+        while ( ( r = read( debugPipe[ 0 ], testDebug + size, capacity - size ) ) > 0 ) {
+            size += r;
+            if ( size + 1 >= capacity ) {
+                capacity += 1024;
+                char *resized = realloc( testDebug, capacity );
+                if ( !resized )
+                    break;
+                testDebug = resized;
+            }
+        }
+        testDebug[ size ] = '\0';
+
+        r = close( debugPipe[ 0 ] );
+        if ( r == -1 )
+            testInternalError();
+
         r = close( pipefd[ 0 ] );
         if ( r == -1 )
             testInternalError();
@@ -389,17 +466,22 @@ static void testExecute( TestRunner run ) {
     else { // child
 // TODO: check parent in other *NIX platforms
 #if defined(__linux__)
-        r = prctl(PR_SET_PDEATHSIG, SIGTERM);
+        r = prctl( PR_SET_PDEATHSIG, SIGTERM );
         if ( r == -1 )
             testInternalError();
-        if (getppid() != parentPid)
+        if ( getppid() != parentPid )
             testExplicitError( EPERM );
 #endif
         r = close( pipefd[ 0 ] ); // disable reading
         if ( r == -1 )
             testInternalError();
 
+        r = close( debugPipe[ 0 ] ); // disable reading
+        if ( r == -1 )
+            testInternalError();
+
         testInfo()->pipeEnd = pipefd[ 1 ];
+        testInfo()->debugPipe = debugPipe[ 1 ];
         testTmpOut = tmpfile();
         testTmpErr = tmpfile();
         dup2( fileno( testTmpOut ), 1 ); // redirect stdout
@@ -427,6 +509,8 @@ NORETURN static void testExecuteUnit( int id, int order ) {
     testInfo()->pipeEnd = _dup( 1 );
     _setmode( testInfo()->pipeEnd, _O_BINARY );
 
+    testInfo()->debugPipe = _dup( 2 );
+    _setmode( testInfo()->debugPipe, _O_BINARY );
 
     testTmpOut = tmpfile();
     testTmpErr = tmpfile();
@@ -446,9 +530,12 @@ static void testExecute( TestRunner run ) {
     saAttr.lpSecurityDescriptor = NULL;
 
     HANDLE childOutWrite, childOutRead;
+    HANDLE childDebugWrite, childDebugRead;
 
     CreatePipe( &childOutRead, &childOutWrite, &saAttr, 0 );
+    CreatePipe( &childDebugRead, &childDebugWrite, &saAttr, 0 );
     SetHandleInformation( childOutRead, HANDLE_FLAG_INHERIT, 0 );
+    SetHandleInformation( childDebugRead, HANDLE_FLAG_INHERIT, 0 );
 
     PROCESS_INFORMATION procInfo;
     STARTUPINFOA startInfo;
@@ -459,6 +546,7 @@ static void testExecute( TestRunner run ) {
     startInfo.cb = sizeof( startInfo );
     startInfo.dwFlags |= STARTF_USESTDHANDLES;
     startInfo.hStdOutput = childOutWrite;
+    startInfo.hStdError = childDebugWrite;
 
     char *command = malloc( strlen( testProgramName ) + strlen( testSwitch ) + 16 );
     sprintf( command, "\"%s\" %s %i %i", testProgramName, testSwitch, testInfo()->id, testInfo()->order );
@@ -495,6 +583,28 @@ static void testExecute( TestRunner run ) {
         DWORD read;
         ReadFile( childOutRead, testInfo(), sizeof( struct TestInfo ), &read, NULL );
     }
+
+    int capacity = 1024;
+    int size = 0;
+    testDebug = malloc( capacity + 1 );
+    while ( 1 ) {
+        DWORD read;
+        ReadFile( childDebugRead, testDebug + size, capacity - size, &read, NULL );
+        size += read;
+        if ( size != capacity )
+            break;
+        capacity += 1024;
+        char *resized = realloc( testDebug, capacity + 1 );
+        if ( !resized )
+            break;
+        testDebug = resized;
+    }
+    testDebug[ size ] = '\0';
+
+    CloseHandle( childOutRead );
+    CloseHandle( childOutWrite );
+    CloseHandle( childDebugRead );
+    CloseHandle( childDebugWrite );
 }
 #endif
 
@@ -540,6 +650,7 @@ static int testRun( FILE *output, int argc, const char **argv ) {
         testInfo()->errStatement = "";
         testInfo()->errFile = "";
         testInfo()->errLine = 0;
+
 
         int base = fprintf( output, "[%3i] %s", testInfo()->order, testInfo()->name );
         fflush( output );
