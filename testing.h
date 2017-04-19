@@ -414,6 +414,7 @@ static void testExecute( TestRunner run ) {
 #if defined(_WIN32)
 
 NORETURN static void testExecuteUnit( int id, int order ) {
+    SetErrorMode( SEM_NOGPFAULTERRORBOX );
     testInfo()->name = testAll[ id ].name;
     testInfo()->order = order;
     testInfo()->id = id;
