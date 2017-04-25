@@ -267,6 +267,10 @@ NORETURN void testFinish() {
     r = _write( testInfo()->pipeEnd, testInfo(), sizeof( struct TestInfo ) );
     if ( r != sizeof( struct TestInfo ) )
         testInternalError();
+    _close( 1 );
+    _close( 2 );
+    _close( testInfo()->pipeEnd );
+    _close( testInfo()->debugPipe );
 
     free( testAll );
     if ( testTmpOut )
@@ -281,7 +285,16 @@ NORETURN void testFinish() {
     r = write( testInfo()->pipeEnd, testInfo(), sizeof( struct TestInfo ) );
     if ( r != sizeof( struct TestInfo ) )
         testInternalError();
+    r = close( 1 );
+    if ( r == -1 )
+        testInternalError();
+    r = close( 2 );
+    if ( r == -1 )
+        testInternalError();
     r = close( testInfo()->pipeEnd );
+    if ( r == -1 )
+        testInternalError();
+    r = close( testInfo()->debugPipe );
     if ( r == -1 )
         testInternalError();
 
@@ -516,8 +529,8 @@ NORETURN static void testExecuteUnit( int id, int order ) {
     testTmpErr = tmpfile();
     _dup2( _fileno( testTmpOut ), 1 ); // redirect stdout
     _dup2( _fileno( testTmpErr ), 2 ); // redirect stderr
-
     testAll[ id ].run();
+
     testFinish();
 }
 
