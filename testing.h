@@ -161,6 +161,9 @@ struct TestItem {
     int failing;
 };
 
+static const char *noForkOpt = "--no-fork";
+static const char *timeoutOpt = "--timeout";
+
 static int testIndex = 0;
 static int testCapacity = 0;
 static struct TestItem *testAll = NULL;
@@ -168,6 +171,8 @@ static struct TestInfo info;
 static FILE *testTmpOut = NULL;
 static FILE *testTmpErr = NULL;
 static char *testDebug = NULL;
+static int timeout = 3; // seconds
+static int noFork = 0;
 #if defined( _WIN32 )
 static const char *testProgramName = NULL;
 static const char *testSwitch = "--test-id";
@@ -267,6 +272,10 @@ NORETURN void testFinish() {
     r = _write( testInfo()->pipeEnd, testInfo(), sizeof( struct TestInfo ) );
     if ( r != sizeof( struct TestInfo ) )
         testInternalError();
+    _close( 1 );
+    _close( 2 );
+    _close( testInfo()->pipeEnd );
+    _close( testInfo()->debugPipe );
 
     free( testAll );
     if ( testTmpOut )
@@ -281,7 +290,16 @@ NORETURN void testFinish() {
     r = write( testInfo()->pipeEnd, testInfo(), sizeof( struct TestInfo ) );
     if ( r != sizeof( struct TestInfo ) )
         testInternalError();
+    r = close( 1 );
+    if ( r == -1 )
+        testInternalError();
+    r = close( 2 );
+    if ( r == -1 )
+        testInternalError();
     r = close( testInfo()->pipeEnd );
+    if ( r == -1 )
+        testInternalError();
+    r = close( testInfo()->debugPipe );
     if ( r == -1 )
         testInternalError();
 
@@ -299,14 +317,6 @@ void testFillInfo( const char *stm, const char *file, int line ) {
     testInfo()->errStatement = stm;
     testInfo()->errFile = file;
     testInfo()->errLine = line;
-}
-
-static int argMatch( const char *name, int argc, const char **argv ) {
-    for ( int i = 1; i < argc; ++i ) {
-        if ( strstr( name, argv[ i ] ) )
-            return 1;
-    }
-    return 0;
 }
 
 static INLINE void fill( FILE *output, int n ) {
@@ -516,8 +526,8 @@ NORETURN static void testExecuteUnit( int id, int order ) {
     testTmpErr = tmpfile();
     _dup2( _fileno( testTmpOut ), 1 ); // redirect stdout
     _dup2( _fileno( testTmpErr ), 2 ); // redirect stderr
-
     testAll[ id ].run();
+
     testFinish();
 }
 
@@ -608,9 +618,51 @@ static void testExecute( TestRunner run ) {
 }
 #endif
 
+static void testExecuteUnforked( TestRunner run ) {
+}
+
+static void getOptions(int argc, const char **argv) {
+    for ( int i = 1; i < argc; ++i ) {
+        if ( !strcmp( argv[ i ], noForkOpt ) ) {
+            noFork = 1;
+            continue;
+        }
+        if ( !strcmp( argv[ i ], timeoutOpt ) ) {
+            if ( i + 1 < argc ) {
+                ++i;
+                timeout = atoi( argv[ i ] );
+            }
+        }
+    }
+}
+
+static int argMatch( const char *name, int argc, const char **argv ) {
+    int skipNext = 0;
+    int canMatch = 0;
+    for ( int i = 1; i < argc; ++i ) {
+        if ( skipNext ) {
+            skipNext = 0;
+            continue;
+        }
+        if ( !strcmp( argv[ i ], noForkOpt ) ) {
+            continue;
+        }
+        if ( !strcmp( argv[ i ], timeoutOpt ) ) {
+            skipNext = 1;
+            continue;
+        }
+        canMatch = 1;
+        if ( strstr( name, argv[ i ] ) )
+            return 1;
+    }
+    return !canMatch;
+}
+
 static int testRun( FILE *output, int argc, const char **argv ) {
     int failed = 0;
     int executed = 0;
+
+    getOptions( argc, argv );
 
 #if defined(_WIN32)
     testProgramName = argv[ 0 ];
@@ -654,7 +706,10 @@ static int testRun( FILE *output, int argc, const char **argv ) {
 
         int base = fprintf( output, "[%3i] %s", testInfo()->order, testInfo()->name );
         fflush( output );
-        testExecute( testAll[ i ].run );
+        if ( noFork )
+            testExecuteUnforked( testAll[ i ].run );
+        else
+            testExecute( testAll[ i ].run );
         failed += printDefail( output, base );
     }
 
