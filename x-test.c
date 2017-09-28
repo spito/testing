@@ -32,3 +32,10 @@ TEST(ctvrty) {
 TEST(paty) {
     while(1);
 }
+
+
+TEST(sesty) {
+    printf("cislo %d", 6);
+
+    ASSERT_FILE(stdout, "cislo 6");
+}

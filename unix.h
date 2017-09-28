@@ -119,4 +119,39 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, s
     }
 }
 
+CUT_PRIVATE int testReadWholeFile(int fd, char *buffer, size_t length) {
+    while (length) {
+        int rv = read(fd, buffer, length);
+        if (rv < 0)
+            return -1;
+        buffer += rv;
+        length -= rv;
+    }
+    return 0;
+}
+
+int cut_File(FILE *f, const char *content) {
+    int result = 0;
+    size_t length = strlen(content);
+    int fd = fileno(f);
+    fflush(f);
+    char *buf = NULL;
+
+    long offset = lseek(fd, 0, SEEK_CUR);
+    if ((size_t) lseek(fd, 0, SEEK_END) != length)
+        goto leave;
+
+    lseek(fd, 0, SEEK_SET);
+    buf = (char*)malloc(length);
+    if (!buf)
+        cut_FatalExit("cannot allocate memory for file");
+    if (testReadWholeFile(fd, buf, length))
+        cut_FatalExit("cannot read whole file");
+
+    result = memcmp(content, buf, length) == 0;
+leave:
+    lseek(fd, offset, SEEK_SET);
+    free(buf);
+    return result;
+}
 #endif

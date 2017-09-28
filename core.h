@@ -488,7 +488,7 @@ CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, c
             arguments->noFork = 1;
             continue;
         }
-        if (!strcmp(noColor, argv[1])) {
+        if (!strcmp(noColor, argv[i])) {
             arguments->noColor = 1;
             continue;
         }
