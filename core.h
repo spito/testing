@@ -23,7 +23,8 @@
 #  error "unsupported platform"
 # endif
 
-# define _POSIX_C_SOURCE 1
+# define _POSIX_C_SOURCE 199309L
+# define _XOPEN_SOURCE 500
 # include <stdio.h>
 # include <stdlib.h>
 # include <string.h>
@@ -134,12 +135,13 @@ CUT_PRIVATE int cut_pipeRead = 0;
 CUT_PRIVATE FILE *cut_stdout = NULL;
 CUT_PRIVATE FILE *cut_stderr = NULL;
 CUT_PRIVATE jmp_buf cut_executionPoint;
+CUT_PRIVATE const char *cut_emergencyLog = "cut.log";
 
 #  include "fragments.h"
 
 // common functions
 CUT_NORETURN int cut_FatalExit(const char *reason);
-CUT_NORETURN void cut_ErrorExit(const char *reason, ...);
+CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
 void cut_Register(cut_Instance instance, const char *name);
 CUT_PRIVATE void cut_SendOK(int counter);
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
@@ -147,7 +149,7 @@ void cut_Stop(const char *text, const char *file, size_t line);
 CUT_PRIVATE int cut_StopException(const char *type, const char *text);
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest);
 void cut_Subtest(const char *name);
-CUT_PRIVATE void *cut_PipeReader(void *data);
+CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result);
 CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, const char *file);
 CUT_PRIVATE int cut_AddDebug(struct cut_UnitResult *result,
     size_t line, const char *file, const char *text);
@@ -160,7 +162,7 @@ CUT_PRIVATE int cut_SkipUnit(const struct cut_Arguments *arguments, const char *
 CUT_PRIVATE const char *cut_GetStatus(int noColor, const struct cut_UnitResult *result,
                                       int *length);
 CUT_PRIVATE void cut_PrintResult(FILE *output, int base, int subtest,
-    int noColor, const struct cut_UnitResult *result);
+    int timeout, int noColor, const struct cut_UnitResult *result);
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result);
 CUT_PRIVATE int cut_Runner(int argc, char **argv);
 
@@ -184,7 +186,7 @@ int cut_File(FILE *file, const char *content);
 
 CUT_NORETURN int cut_FatalExit(const char *reason) {
     if (cut_spawnChild) {
-        FILE *log = fopen("cut.log", "w");
+        FILE *log = fopen(cut_emergencyLog, "w");
         if (log) {
             fprintf(log, "CUT internal error during unit test: %s\n", reason);
             fclose(log);
@@ -195,7 +197,7 @@ CUT_NORETURN int cut_FatalExit(const char *reason) {
     exit(cut_FATAL_EXIT);
 }
 
-CUT_NORETURN void cut_ErrorExit(const char *reason, ...) {
+CUT_NORETURN int cut_ErrorExit(const char *reason, ...) {
     va_list args;
     va_start(args, reason);
     fprintf(stderr, "Error happened: ");
@@ -209,7 +211,7 @@ CUT_NORETURN void cut_ErrorExit(const char *reason, ...) {
 void cut_Register(cut_Instance instance, const char *name) {
     if (cut_unitTests.size == cut_unitTests.capacity) {
         cut_unitTests.capacity += 16;
-        cut_unitTests.tests = realloc(cut_unitTests.tests, 
+        cut_unitTests.tests = realloc(cut_unitTests.tests,
             sizeof(struct cut_UnitTest) * cut_unitTests.capacity);
         if (!cut_unitTests.tests)
             cut_FatalExit("cannot allocate memory for unit tests");
@@ -290,9 +292,9 @@ CUT_PRIVATE int cut_StopException(const char *type, const char *text) {
 
 } // extern C
 
-# include <stdexcept>
-# include <typeinfo>
-# include <string>
+#  include <stdexcept>
+#  include <typeinfo>
+#  include <string>
 
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     if (setjmp(cut_executionPoint))
@@ -330,9 +332,7 @@ void cut_Subtest(const char *name) {
     cut_FragmentClean(&message);
 }
 
-CUT_PRIVATE void *cut_PipeReader(void *data) {
-    struct cut_UnitResult *result = (struct cut_UnitResult *)data;
-
+CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
     int repeat;
     do {
         repeat = 0;
@@ -569,7 +569,7 @@ CUT_PRIVATE const char *cut_GetStatus(int noColor, const struct cut_UnitResult *
     return noColor ? basicOk : ok;
 }
 
-CUT_PRIVATE void cut_PrintResult(FILE *output, int base, int subtest,
+CUT_PRIVATE void cut_PrintResult(FILE *output, int base, int subtest, int timeout,
                                  int noColor, const struct cut_UnitResult *result) {
     static const char *shortIndent = "    ";
     static const char *longIndent = "        ";
@@ -577,7 +577,7 @@ CUT_PRIVATE void cut_PrintResult(FILE *output, int base, int subtest,
     const char *status = cut_GetStatus(noColor, result, &statusLength);
     int lastPosition = 80 - 1 - statusLength;
     int extended = 0;
-    
+
     const char *indent = shortIndent;
     if (result->name && subtest) {
         if (subtest == 1)
@@ -596,7 +596,7 @@ CUT_PRIVATE void cut_PrintResult(FILE *output, int base, int subtest,
     fprintf(output, "%s\n", status);
     if (result->failed) {
         if (result->signal == SIGALRM)
-            fprintf(output, "%stimeouted\n", indent);
+            fprintf(output, "%stimeouted (%d s)\n", indent, timeout);
         else if (result->signal)
             fprintf(output, "%ssignal code: %d\n", indent, result->signal);
         if (result->returnCode)
@@ -665,7 +665,7 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
             cut_RunUnit(i, subtest, arguments.timeout, arguments.noFork, &result);
             if (result.failed)
                 ++subtestFailure;
-            FILE *emergencyLog = fopen("cut.log", "r");
+            FILE *emergencyLog = fopen(cut_emergencyLog, "r");
             if (emergencyLog) {
                 char buffer[512] = {0,};
                 fread(buffer, 512, 1, emergencyLog);
@@ -674,8 +674,9 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
                     strcpy(result.statement, buffer);
                 }
                 fclose(emergencyLog);
+                remove(cut_emergencyLog);
             }
-            cut_PrintResult(output, base, subtest, arguments.noColor, &result);
+            cut_PrintResult(output, base, subtest, arguments.timeout, arguments.noColor, &result);
             cut_CleanMemory(&result);
             if (result.subtests > subtests)
                 subtests = result.subtests;
@@ -685,7 +686,7 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
             struct cut_UnitResult result;
             memset(&result, 0, sizeof(result));
             result.failed = subtestFailure;
-            cut_PrintResult(output, base, 0, arguments.noColor, &result);
+            cut_PrintResult(output, base, 0, 0, arguments.noColor, &result);
         }
         if (subtestFailure)
             ++failed;

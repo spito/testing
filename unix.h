@@ -1,7 +1,6 @@
 #ifndef CUT_UNIX_H
 #define CUT_UNIX_H
 
-# include <pthread.h>
 # include <unistd.h>
 # include <sys/wait.h>
 # include <sys/types.h>
@@ -40,6 +39,7 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
     return toRead != -1;
 }
 
+
 CUT_PRIVATE void cut_PreRun(void *data) {
 }
 
@@ -53,8 +53,6 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, s
     cut_pipeRead = pipefd[0];
     cut_pipeWrite = pipefd[1];
 
-    pthread_t reader;
-
     int pid = getpid();
     int parentPid = getpid();
     if (!noFork) {
@@ -62,9 +60,6 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, s
         if (pid == -1)
             cut_FatalExit("cannot fork");
     }
-    if (pid || noFork)
-        !pthread_create(&reader, NULL, cut_PipeReader, result)
-        || cut_FatalExit("cannot start reader thread");
     if (!pid || noFork) {
         if (!noFork) {
             cut_spawnChild = 1;
@@ -104,13 +99,15 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, s
         int status = 0;
         if (!noFork) {
             close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
+        }
+        cut_PipeReader(result);
+        if (!noFork) {
             waitpid(pid, &status, 0) != -1 || cut_FatalExit("cannot wait for unit");
         }
-        pthread_join(reader, NULL);
         if (!noFork) {
             result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
             result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
-            result->failed |= result->returnCode ||  result->returnCode;
+            result->failed |= result->returnCode ||  result->signal;
         } else {
             result->returnCode = 0;
             result->signal = 0;
