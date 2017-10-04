@@ -66,10 +66,10 @@ void *cut_FragmentReserve(struct cut_Fragment *fragments, size_t length, int *sl
         return NULL;
     if (fragments->sliceCount == CUT_MAX_SLICE_COUNT)
         return NULL;
-    struct cut_FragmentSlice *slice = malloc(sizeof(struct cut_FragmentSlice));
+    struct cut_FragmentSlice *slice = (struct cut_FragmentSlice *)malloc(sizeof(struct cut_FragmentSlice));
     if (!slice)
         return NULL;
-    slice->data = malloc(length);
+    slice->data = (char *)malloc(length);
     if (!slice->data) {
         free(slice);
         return NULL;
@@ -125,10 +125,11 @@ int cut_FragmentSerialize(struct cut_Fragment *fragments) {
     }
     if (length > CUT_MAX_SERIALIZED_LENGTH)
         return 0;
-    fragments->serialized = malloc(length);
+    fragments->serialized = (char *)malloc(length);
     if (!fragments->serialized)
         return 0;
     fragments->serializedLength = length;
+    memset(fragments->serialized, 0, length);
     struct cut_FragmentHeader *header = (struct cut_FragmentHeader *)fragments->serialized;
     header->length = length;
     header->id = fragments->id;

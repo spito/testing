@@ -1,5 +1,4 @@
 #define CUT
-#define CUT_MAIN
 
 #include "core.h"
 
@@ -45,6 +44,5 @@ TEST(sesty) {
 }
 
 TEST(osm) {
-    open("W", O_WRONLY | O_CREAT, 0666);
     exit(10);
 }

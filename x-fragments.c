@@ -44,7 +44,7 @@ int main() {
     if (txt) {
         printf("cmp 1: %s (%s)\n", strcmp(txt, tractor) ? "no" : "yes", txt);
     }
-    
+
     cut_FragmentClean(&f);
     cut_FragmentClean(&other);
 
@@ -52,6 +52,17 @@ int main() {
 
     foo(1) || bar();
     foo(-1) || bar();
+
+
+    struct cut_Fragment empty;
+    cut_FragmentInit(&empty, 10);
+    cut_FragmentReserve(&empty, sizeof(int), NULL);
+    cut_FragmentSerialize(&empty);
+
+    char buf[500];
+    memcpy(buf, empty.serialized, empty.serializedLength);
+
+    cut_FragmentClean(&empty);
 
     return 0;
 }

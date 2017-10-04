@@ -1,6 +1,8 @@
 #ifndef CUT_UNIX_H
 #define CUT_UNIX_H
 
+#pragma GCC system_header
+
 # include <unistd.h>
 # include <sys/wait.h>
 # include <sys/types.h>
@@ -10,8 +12,10 @@ CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
     size_t remaining = message->serializedLength;
     size_t position = 0;
 
+   char buf[500];
+
     ssize_t r;
-    while ((r = write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
+    while (remaining && (r = write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
         position += r;
         remaining -= r;
     }
@@ -30,7 +34,7 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
 
         if (message->serializedLength < processed + toRead) {
             message->serializedLength = processed + toRead;
-            message->serialized = realloc(message->serialized, message->serializedLength);
+            message->serialized = (char *)realloc(message->serialized, message->serializedLength);
             if (!message->serialized)
                 cut_FatalExit("cannot allocate memory for reading a message");
         }
@@ -40,10 +44,10 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
 }
 
 
-CUT_PRIVATE void cut_PreRun(void *data) {
+CUT_PRIVATE void cut_PreRun() {
 }
 
-CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *result) {
     int r;
     int pipefd[2];
     r = pipe(pipefd);
@@ -55,13 +59,13 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, s
 
     int pid = getpid();
     int parentPid = getpid();
-    if (!noFork) {
+    if (!cut_arguments.noFork) {
         pid = fork();
         if (pid == -1)
             cut_FatalExit("cannot fork");
     }
-    if (!pid || noFork) {
-        if (!noFork) {
+    if (!pid || cut_arguments.noFork) {
+        if (!cut_arguments.noFork) {
             cut_spawnChild = 1;
             r = prctl(PR_SET_PDEATHSIG, SIGTERM);
             if (r == -1)
@@ -78,8 +82,8 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, s
         dup2(fileno(cut_stdout), 1);
         dup2(fileno(cut_stderr), 2);
 
-        if (!noFork && timeout)
-            alarm(timeout);
+        if (!cut_arguments.noFork && cut_arguments.timeout)
+            alarm(cut_arguments.timeout);
         cut_ExceptionBypass(testId, subtest);
 
         fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
@@ -87,24 +91,27 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, int timeout, int noFork, s
         close(1) != -1 || cut_FatalExit("cannot close file");
         close(2) != -1 || cut_FatalExit("cannot close file");
         close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
-        if (!noFork) {
+        if (!cut_arguments.noFork) {
             free(cut_unitTests.tests);
+            free(cut_arguments.match);
+            if (cut_arguments.output)
+                fclose(cut_output);
             exit(cut_OK_EXIT);
         } else {
             dup2(originalStdOut, 1);
             dup2(originalStdErr, 2);
         }
     }
-    if (pid || noFork) {
+    if (pid || cut_arguments.noFork) {
         int status = 0;
-        if (!noFork) {
+        if (!cut_arguments.noFork) {
             close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
         }
         cut_PipeReader(result);
-        if (!noFork) {
+        if (!cut_arguments.noFork) {
             waitpid(pid, &status, 0) != -1 || cut_FatalExit("cannot wait for unit");
         }
-        if (!noFork) {
+        if (!cut_arguments.noFork) {
             result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
             result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
             result->failed |= result->returnCode ||  result->signal;
