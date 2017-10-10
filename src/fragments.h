@@ -1,6 +1,10 @@
 #ifndef CUT_FRAGMENTS_H
 #define CUT_FRAGMENTS_H
 
+#ifndef CUT_MAIN
+#error "cannot be standalone"
+#endif
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -8,6 +12,7 @@
 
 #define CUT_MAX_SLICE_COUNT 255
 #define CUT_MAX_SERIALIZED_LENGTH (256*256-1)
+#define CUT_MAX_SIGNAL_SAFE_SERIALIZED_LENGTH 512
 
 struct cut_FragmentSlice {
     char *data;
@@ -39,7 +44,7 @@ typedef union {
 } cut_FragmentReceiveStatus;
 #define CUT_FRAGMENT_RECEIVE_STATUS {0}
 
-void cut_FragmentInit(struct cut_Fragment *fragments, int id) {
+CUT_PRIVATE void cut_FragmentInit(struct cut_Fragment *fragments, int id) {
     fragments->id = id;
     fragments->sliceCount = 0;
     fragments->serializedLength = 0;
@@ -48,7 +53,7 @@ void cut_FragmentInit(struct cut_Fragment *fragments, int id) {
     fragments->lastSlice = NULL;
 }
 
-void cut_FragmentClean(struct cut_Fragment *fragments) {
+CUT_PRIVATE void cut_FragmentClean(struct cut_Fragment *fragments) {
     if (!fragments)
         return;
     if (fragments->serialized)
@@ -61,7 +66,7 @@ void cut_FragmentClean(struct cut_Fragment *fragments) {
     }
 }
 
-void *cut_FragmentReserve(struct cut_Fragment *fragments, size_t length, int *sliceId) {
+CUT_PRIVATE void *cut_FragmentReserve(struct cut_Fragment *fragments, size_t length, int *sliceId) {
     if (!fragments)
         return NULL;
     if (fragments->sliceCount == CUT_MAX_SLICE_COUNT)
@@ -87,7 +92,7 @@ void *cut_FragmentReserve(struct cut_Fragment *fragments, size_t length, int *sl
     return slice->data;
 }
 
-void *cut_FragmentAddString(struct cut_Fragment *fragments, const char *str) {
+CUT_PRIVATE void *cut_FragmentAddString(struct cut_Fragment *fragments, const char *str) {
     if (!fragments)
         return NULL;
     size_t length = strlen(str) + 1;
@@ -98,7 +103,7 @@ void *cut_FragmentAddString(struct cut_Fragment *fragments, const char *str) {
     return data;
 }
 
-char *cut_FragmentGet(struct cut_Fragment *fragments, int sliceId, size_t *length) {
+CUT_PRIVATE char *cut_FragmentGet(struct cut_Fragment *fragments, int sliceId, size_t *length) {
     if (!fragments)
         return NULL;
     if (sliceId >= fragments->sliceCount)
@@ -112,7 +117,7 @@ char *cut_FragmentGet(struct cut_Fragment *fragments, int sliceId, size_t *lengt
     return current->data;
 }
 
-int cut_FragmentSerialize(struct cut_Fragment *fragments) {
+CUT_PRIVATE int cut_FragmentSerialize(struct cut_Fragment *fragments) {
     if (!fragments)
         return 0;
     if (fragments->serialized)
@@ -144,7 +149,38 @@ int cut_FragmentSerialize(struct cut_Fragment *fragments) {
     return 1;
 }
 
-int cut_FragmentDeserialize(struct cut_Fragment *fragments) {
+CUT_PRIVATE int cut_FragmentSignalSafeSerialize(struct cut_Fragment *fragments) {
+    static char buffer[CUT_MAX_SIGNAL_SAFE_SERIALIZED_LENGTH];
+    if (!fragments)
+        return 0;
+    if (fragments->serialized)
+        return 0;
+    uint32_t length = sizeof(struct cut_FragmentHeader);
+    length += fragments->sliceCount * sizeof(uint16_t);
+    uint32_t contentOffset = length;
+    for (struct cut_FragmentSlice *current = fragments->slices; current; current = current->next) {
+        length += current->length;
+    }
+    if (length > CUT_MAX_SIGNAL_SAFE_SERIALIZED_LENGTH)
+        return 0;
+    fragments->serialized = buffer;
+    fragments->serializedLength = length;
+    memset(fragments->serialized, 0, length);
+    struct cut_FragmentHeader *header = (struct cut_FragmentHeader *)fragments->serialized;
+    header->length = length;
+    header->id = fragments->id;
+    header->sliceCount = fragments->sliceCount;
+    uint16_t *sliceLength = (uint16_t *)(header + 1);
+    for (struct cut_FragmentSlice *current = fragments->slices; current; current = current->next) {
+        *sliceLength = current->length;
+        ++sliceLength;
+        memcpy(fragments->serialized + contentOffset, current->data, current->length);
+        contentOffset += current->length;
+    }
+    return 1;
+}
+
+CUT_PRIVATE int cut_FragmentDeserialize(struct cut_Fragment *fragments) {
     if (!fragments)
         return 0;
     if (!fragments->serialized)
@@ -166,7 +202,7 @@ int cut_FragmentDeserialize(struct cut_Fragment *fragments) {
     return 1;
 }
 
-ssize_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *status, void *data, ssize_t length) {
+CUT_PRIVATE ssize_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *status, void *data, ssize_t length) {
     if (!status)
         return 0;
     if (!data) {
@@ -184,7 +220,7 @@ ssize_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *status, void *dat
     return status->structured.length - status->structured.processed;
 }
 
-size_t cut_FragmentReceiveProcessed(cut_FragmentReceiveStatus *status) {
+CUT_PRIVATE size_t cut_FragmentReceiveProcessed(cut_FragmentReceiveStatus *status) {
     if (!status)
         return 0;
     return status->structured.processed;

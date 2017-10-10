@@ -1,18 +1,15 @@
 #ifndef CUT_UNIX_H
 #define CUT_UNIX_H
 
-#pragma GCC system_header
-
 # include <unistd.h>
 # include <sys/wait.h>
 # include <sys/types.h>
 # include <sys/prctl.h>
+# include <signal.h>
 
 CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
     size_t remaining = message->serializedLength;
     size_t position = 0;
-
-   char buf[500];
 
     ssize_t r;
     while (remaining && (r = write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
@@ -43,8 +40,12 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
     return toRead != -1;
 }
 
-
 CUT_PRIVATE void cut_PreRun() {
+}
+
+CUT_PRIVATE void cut_SigAlrm(CUT_UNUSED(int signum)) {
+    cut_Timeouted();
+    _exit(cut_NORMAL_EXIT);
 }
 
 CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *result) {
@@ -82,8 +83,13 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
         dup2(fileno(cut_stdout), 1);
         dup2(fileno(cut_stderr), 2);
 
-        if (!cut_arguments.noFork && cut_arguments.timeout)
+        if (!cut_arguments.noFork && cut_arguments.timeout) {
+            struct sigaction sa;
+            memset(&sa, 0, sizeof(sa));
+            sa.sa_handler = cut_SigAlrm;
+            sigaction(SIGALRM, &sa, NULL);
             alarm(cut_arguments.timeout);
+        }
         cut_ExceptionBypass(testId, subtest);
 
         fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
@@ -96,7 +102,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
             free(cut_arguments.match);
             if (cut_arguments.output)
                 fclose(cut_output);
-            exit(cut_OK_EXIT);
+            exit(cut_NORMAL_EXIT);
         } else {
             dup2(originalStdOut, 1);
             dup2(originalStdErr, 2);
