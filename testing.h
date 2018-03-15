@@ -96,6 +96,7 @@ void testDebugMsg( const char *file, size_t line, const char *fmt, ... );
 # include <unistd.h>
 # include <sys/wait.h>
 # include <sys/types.h>
+# include <signal.h>
 #else
 # error "unsupported platform"
 #endif
