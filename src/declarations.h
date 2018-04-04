@@ -17,9 +17,9 @@ CUT_PRIVATE int cut_StopException(const char *type, const char *text);
 #  endif
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest);
 CUT_PRIVATE void cut_Timeouted();
-void cut_Subtest(const char *name);
+void cut_Subtest(int number, const char *name);
 CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result);
-CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, const char *file);
+CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name);
 CUT_PRIVATE int cut_AddDebug(struct cut_UnitResult *result,
     size_t line, const char *file, const char *text);
 CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result,

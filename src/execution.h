@@ -83,7 +83,17 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
     if (result->name && subtest) {
         if (subtest == 1)
             putc('\n', cut_output);
-        lastPosition -= fprintf(cut_output, "%s%s", indent, result->name);
+        if (result->number <= 1)
+            lastPosition -= fprintf(cut_output, "%s%s", indent, result->name);
+        else {
+            lastPosition -= fprintf(cut_output, "%s", indent);
+            int length = strlen(result->name);
+            for (int i = 0; i < length; ++i)
+                putc(' ', cut_output);
+            lastPosition -= length;
+        }
+        if (result->number)
+            lastPosition -= fprintf(cut_output, " #%d", result->number);
         indent = longIndent;
     } else {
         lastPosition -= base;

@@ -79,9 +79,13 @@ CUT_PRIVATE void cut_Timeouted() {
     cut_SendMessage(&message) || cut_FatalExit("cannot send timeout:message");
 }
 
-void cut_Subtest(const char *name) {
+void cut_Subtest(int number, const char *name) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_SUBTEST);
+    int * pNumber = (int *)cut_FragmentReserve(&message, sizeof(int), NULL);
+    if (!pNumber)
+        cut_FatalExit("cannot insert subtest:fragment:number");
+    *pNumber = number;
     cut_FragmentAddString(&message, name) || cut_FatalExit("cannot insert subtest:fragment:name");
     cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize subtest:fragment");
 
@@ -100,10 +104,11 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
 
         switch (message.id) {
         case cut_MESSAGE_SUBTEST:
-            message.sliceCount == 1 || cut_FatalExit("invalid debug:message format");
+            message.sliceCount == 2 || cut_FatalExit("invalid debug:message format");
             cut_SetSubtestName(
                 result,
-                cut_FragmentGet(&message, 0, NULL)
+                *(int *)cut_FragmentGet(&message, 0, NULL),
+                cut_FragmentGet(&message, 1, NULL)
             ) || cut_FatalExit("cannot set subtest name");
             repeat = 1;
             break;
@@ -148,10 +153,11 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
     return NULL;
 }
 
-CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, const char *name) {
+CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name) {
     result->name = (char *)malloc(strlen(name));
     if (!result->name)
         return 0;
+    result->number = number;
     strcpy(result->name, name);
     return 1;
 }

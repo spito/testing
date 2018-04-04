@@ -7,7 +7,10 @@
 # define ASSERT_FILE(f, content) (void)0
 # define TEST(name) static void unitTest_ ## name()
 # define SUBTEST(name) if (0)
+# define REPEATED_SUBTEST(name, count) if (0)
+# define SUBTEST_NO 0
 # define DEBUG_MSG(...) (void)0
+
 
 #else
 
@@ -47,8 +50,16 @@
 
 # define SUBTEST(name)                                                          \
     if (++*cut_subtest == cut_current)                                          \
-        cut_Subtest(#name);                                                     \
+        cut_Subtest(0, #name);                                                  \
     if (*cut_subtest == cut_current)
+
+# define REPEATED_SUBTEST(name, count)                                          \
+    *cut_subtest = (count);                                                     \
+    if (count)                                                                  \
+        cut_Subtest(cut_current, #name);                                        \
+    if (count)
+
+# define SUBTEST_NO cut_current
 
 # define DEBUG_MSG(...) cut_DebugMessage(__FILE__, __LINE__, __VA_ARGS__)
 
@@ -60,7 +71,7 @@ typedef void(*cut_Instance)(int *, int);
 void cut_Register(cut_Instance instance, const char *name);
 int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
-void cut_Subtest(const char *name);
+void cut_Subtest(int number, const char *name);
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 
 # if defined(CUT_MAIN)
@@ -90,6 +101,7 @@ enum cut_MessageType {
 
 struct cut_UnitResult {
     char *name;
+    int number;
     int subtests;
     int failed;
     char *file;

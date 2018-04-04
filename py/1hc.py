@@ -1,4 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+"""
+Run this program as `py/1hc.py src/core.h 1header/cut.h`
+"""
 
 import os
 import re
@@ -42,7 +46,7 @@ class Context(object):
         return ctx
 
     def addError(self):
-        self.addLine('#error "file was not present {}"'.format(self.file()))
+        self.addLine('#error "file {} was not present in the current build"'.format(self.file()))
 
     def content(self):
         return self._global.content()
@@ -73,6 +77,10 @@ def processFile(context):
 if len(sys.argv) > 2:
     context = Context(sys.argv[1])
     processFile(context)
+
+    output_dir = os.path.dirname(sys.argv[2])
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
 
     with open(sys.argv[2], 'w') as f:
         f.write(context.content())
