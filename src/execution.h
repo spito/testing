@@ -39,11 +39,12 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
 # endif
 
 
-CUT_PRIVATE int cut_SkipUnit(const char *name) {
-    if (cut_arguments.testName)
-        return !strcmp(cut_arguments.testName, name);
+CUT_PRIVATE int cut_SkipUnit(int testId) {
+    if (cut_arguments.testId >= 0)
+        return testId != cut_arguments.testId;
     if (!cut_arguments.matchSize)
         return 0;
+    const char *name = cut_unitTests.tests[testId].name;
     for (int i = 0; i < cut_arguments.matchSize; ++i) {
         if (strstr(name, cut_arguments.match[i]))
             return 0;
@@ -81,7 +82,7 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
 
     const char *indent = shortIndent;
     if (result->name && subtest) {
-        if (subtest == 1)
+        if (subtest < 0)
             putc('\n', cut_output);
         if (result->number <= 1)
             lastPosition -= fprintf(cut_output, "%s%s", indent, result->name);
@@ -148,14 +149,19 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     int failed = 0;
     int executed = 0;
     for (int i = 0; i < cut_unitTests.size; ++i) {
-        if (cut_SkipUnit(cut_unitTests.tests[i].name))
+        if (cut_SkipUnit(i))
             continue;
         ++executed;
         int base = fprintf(cut_output, "[%3i] %s", executed, cut_unitTests.tests[i].name);
         fflush(cut_output);
         int subtests = 1;
+        if (cut_arguments.subtestId > 0)
+            subtests = cut_arguments.subtestId;
         int subtestFailure = 0;
+        int firstSubtest = -1;
         for (int subtest = 1; subtest <= subtests; ++subtest) {
+            if (cut_arguments.subtestId >= 0 && cut_arguments.subtestId != subtest)
+                continue;
             struct cut_UnitResult result;
             memset(&result, 0, sizeof(result));
             cut_RunUnit(i, subtest, &result);
@@ -172,10 +178,11 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
                 fclose(emergencyLog);
                 remove(cut_emergencyLog);
             }
-            cut_PrintResult(base, subtest, &result);
+            cut_PrintResult(base, subtest * firstSubtest, &result);
             cut_CleanMemory(&result);
             if (result.subtests > subtests)
                 subtests = result.subtests;
+            firstSubtest = 1;
         }
         if (subtests > 1) {
             base = fprintf(cut_output, "[%3i] %s (overall)", executed, cut_unitTests.tests[i].name);

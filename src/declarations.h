@@ -27,7 +27,7 @@ CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result,
 CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result,
     const char *type, const char *text);
 CUT_PRIVATE void cut_ParseArguments(int argc, char **argv);
-CUT_PRIVATE int cut_SkipUnit(const char *name);
+CUT_PRIVATE int cut_SkipUnit(int testId);
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *length);
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result);
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result);

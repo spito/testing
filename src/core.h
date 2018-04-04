@@ -18,6 +18,17 @@
 
 # define CUT_PRIVATE static
 
+# if !defined(CUT_TIMEOUT)
+#  define CUT_TIMEOUT 3
+# endif
+
+# if !defined(CUT_NO_FORK)
+#  define CUT_NO_FORK 0
+# else
+#  undef CUT_NO_FORK
+#  define CUT_NO_FORK 1
+# endif
+
 # if defined(__unix)
 #  include "unix-define.h"
 # elif defined(__APPLE__)
@@ -131,8 +142,8 @@ struct cut_Arguments {
     int noFork;
     int noColor;
     char *output;
-    char *testName;
-    char *subtest;
+    int testId;
+    int subtestId;
     int matchSize;
     char **match;
     const char *selfName;
@@ -207,14 +218,14 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     static const char *output = "--output";
     static const char *subtest = "--subtest";
     static const char *exactTest = "--test";
-    cut_arguments.timeout = 3;
-    cut_arguments.noFork = 0;
+    cut_arguments.timeout = CUT_TIMEOUT;
+    cut_arguments.noFork = CUT_NO_FORK;
     cut_arguments.noColor = 0;
     cut_arguments.output = NULL;
-    cut_arguments.testName = NULL;
     cut_arguments.matchSize = 0;
     cut_arguments.match = NULL;
-    cut_arguments.subtest = NULL;
+    cut_arguments.testId = -1;
+    cut_arguments.subtestId = -1;
     cut_arguments.selfName = argv[0];
 
     for (int i = 1; i < argc; ++i) {
@@ -246,18 +257,14 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
         }
         if (!strcmp(exactTest, argv[i])) {
             ++i;
-            if (i < argc)
-                cut_arguments.testName = argv[i];
-            else
-                cut_ErrorExit("option %s requires string argument", exactTest);
+            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.testId))
+                cut_ErrorExit("option %s requires numeric argument %d %d", exactTest, i, argc);
             continue;
         }
         if (!strcmp(subtest, argv[i])) {
             ++i;
-            if (i < argc )
-                cut_arguments.subtest = argv[i];
-            else
-                cut_ErrorExit("option %s requires string argument", subtest);
+            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.subtestId))
+                cut_ErrorExit("option %s requires numeric argument", subtest);
             continue;
         }
         cut_ErrorExit("option %s is not recognized", argv[i]);
