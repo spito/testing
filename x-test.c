@@ -1,8 +1,8 @@
-#define CUT
-
-#include "core.h"
-
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "cut.h"
 
 TEST(prvni) {
     ASSERT(1);
