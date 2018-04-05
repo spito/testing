@@ -13,8 +13,9 @@
 #  include <string>
 
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
+    cut_RedirectIO();
     if (setjmp(cut_executionPoint))
-        return;
+        goto leave;
     try {
         int counter = 0;
         cut_unitTests.tests[testId].instance(&counter, subtest);
@@ -25,16 +26,21 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     } catch (...) {
         cut_StopException("unknown type", "(empty message)");
     }
+leave:
+    cut_ResumeIO();
 }
 
 extern "C" {
 # else
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
+    cut_RedirectIO();
     if (setjmp(cut_executionPoint))
-        return;
+        goto leave;
     int counter = 0;
     cut_unitTests.tests[testId].instance(&counter, subtest);
     cut_SendOK(counter);
+leave:
+    cut_ResumeIO();
 }
 # endif
 
@@ -133,6 +139,14 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
     fflush(cut_output);
 }
 
+CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitResult *result) {
+    cut_ExceptionBypass(testId, subtest);
+    cut_PipeReader(result);
+    cut_ResetLocalMessage();
+    result->returnCode = 0;
+    result->signal = 0;
+}
+
 
 CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     cut_output = stdout;
@@ -145,6 +159,12 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
         if (!cut_output)
             cut_ErrorExit("cannot open file %s for writing", cut_arguments.output);
     }
+
+    if (cut_arguments.help)
+        return cut_Help();
+
+    void (*unitRunner)(int, int, struct cut_UnitResult *) =
+        cut_arguments.noFork ? cut_RunUnitForkless : cut_RunUnit;
 
     int failed = 0;
     int executed = 0;
@@ -164,7 +184,7 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
                 continue;
             struct cut_UnitResult result;
             memset(&result, 0, sizeof(result));
-            cut_RunUnit(i, subtest, &result);
+            unitRunner(i, subtest, &result);
             if (result.failed)
                 ++subtestFailure;
             FILE *emergencyLog = fopen(cut_emergencyLog, "r");

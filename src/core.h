@@ -138,6 +138,7 @@ struct cut_UnitTestArray {
 };
 
 struct cut_Arguments {
+    int help;
     int timeout;
     int noFork;
     int noColor;
@@ -212,12 +213,14 @@ void cut_Register(cut_Instance instance, const char *name) {
 
 
 CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
+    static const char *help = "--help";
     static const char *timeout = "--timeout";
     static const char *noFork = "--no-fork";
     static const char *noColor = "--no-color";
     static const char *output = "--output";
     static const char *subtest = "--subtest";
     static const char *exactTest = "--test";
+    cut_arguments.help = 0;
     cut_arguments.timeout = CUT_TIMEOUT;
     cut_arguments.noFork = CUT_NO_FORK;
     cut_arguments.noColor = 0;
@@ -231,6 +234,10 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
         if (strncmp(argv[i], "--", 2)) {
             ++cut_arguments.matchSize;
+            continue;
+        }
+        if (!strcmp(help, argv[i])) {
+            cut_arguments.help = 1;
             continue;
         }
         if (!strcmp(timeout, argv[i])) {
@@ -304,6 +311,28 @@ CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result) {
     }
 }
 
+CUT_PRIVATE int cut_Help() {
+    const char *text = ""
+    "Run as %s [options] [test names]\n"
+    "\n"
+    "Options:\n"
+    "\t--help            Print out this help.\n"
+    "\t--timeout <N>     Set timeout of each test in seconds. 0 for no timeout.\n"
+    "\t--no-fork         Disable forking. Timeout is turned off.\n"
+    "\t--no-color        Turn off colors.\n"
+    "\t--output <file>   Redirect output to the file.\n"
+    "Hidden options (for internal purposes only):\n"
+    "\t--test <N>        Run test of index N.\n"
+    "\t--subtest <N>     Run subtest of index N (for all tests).\n"
+    "\n"
+    "Test names - any other parameter is accepted as a filter of test names. "
+    "In case there is at least one filter parameter, a test is executed only if "
+    "at least one of the filters is a substring of the test name."
+    "";
+
+    fprintf(cut_output, text, cut_arguments.selfName);
+    return 0;
+}
 
 int main(int argc, char **argv) {
     return cut_Runner(argc, argv);

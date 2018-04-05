@@ -7,6 +7,25 @@
 # include <sys/prctl.h>
 # include <signal.h>
 
+CUT_PRIVATE void cut_RedirectIO() {
+    cut_stdout = tmpfile();
+    cut_stderr = tmpfile();
+    cut_originalStdOut = dup(1);
+    cut_originalStdErr = dup(2);
+
+    dup2(fileno(cut_stdout), 1);
+    dup2(fileno(cut_stderr), 2);
+}
+
+CUT_PRIVATE void cut_ResumeIO() {
+    fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
+    fclose(cut_stderr) != -1 || cut_FatalExit("cannot close file");
+    close(1) != -1 || cut_FatalExit("cannot close file");
+    close(2) != -1 || cut_FatalExit("cannot close file");
+    dup2(cut_originalStdOut, 1);
+    dup2(cut_originalStdErr, 2);
+}
+
 CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
     size_t remaining = message->serializedLength;
     size_t position = 0;
@@ -60,24 +79,13 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 
     int pid = getpid();
     int parentPid = getpid();
-    if (!cut_arguments.noFork) {
-        pid = fork();
-        if (pid == -1)
-            cut_FatalExit("cannot fork");
-    }
-    if (!pid || cut_arguments.noFork) {
-        if (!cut_arguments.noFork) {
-            cut_spawnChild = 1;
-            /// TODO: missing feature - kill child when parent dies
-            close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
-        }
-        cut_stdout = tmpfile();
-        cut_stderr = tmpfile();
-        int originalStdOut = dup(1);
-        int originalStdErr = dup(2);
-
-        dup2(fileno(cut_stdout), 1);
-        dup2(fileno(cut_stderr), 2);
+    pid = fork();
+    if (pid == -1)
+        cut_FatalExit("cannot fork");
+    if (!pid) {
+        cut_spawnChild = 1;
+        /// TODO: missing feature - kill child when parent dies
+        close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 
         if (!cut_arguments.noFork && cut_arguments.timeout) {
             struct sigaction sa;
@@ -88,44 +96,25 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
         }
         cut_ExceptionBypass(testId, subtest);
 
-        fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
-        fclose(cut_stderr) != -1 || cut_FatalExit("cannot close file");
-        close(1) != -1 || cut_FatalExit("cannot close file");
-        close(2) != -1 || cut_FatalExit("cannot close file");
         close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
-        if (!cut_arguments.noFork) {
-            free(cut_unitTests.tests);
-            free(cut_arguments.match);
-            if (cut_arguments.output)
-                fclose(cut_output);
-            exit(cut_OK_EXIT);
-        } else {
-            dup2(originalStdOut, 1);
-            dup2(originalStdErr, 2);
-        }
+        free(cut_unitTests.tests);
+        free(cut_arguments.match);
+        if (cut_arguments.output)
+            fclose(cut_output);
+        exit(cut_OK_EXIT);
     }
-    if (pid || cut_arguments.noFork) {
-        int status = 0;
-        if (!cut_arguments.noFork) {
-            close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
-        }
-        cut_PipeReader(result);
-        if (!cut_arguments.noFork) {
-            do {
-                r = waitpid( pid, &status, 0 );
-            } while ( r == -1 && errno == EINTR );
-            r != -1 || cut_FatalExit("cannot wait for unit");
-        }
-        if (!cut_arguments.noFork) {
-            result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
-            result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
-            result->failed |= result->returnCode ||  result->signal;
-        } else {
-            result->returnCode = 0;
-            result->signal = 0;
-        }
-        close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
-    }
+    // parent process only
+    int status = 0;
+    close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
+    cut_PipeReader(result);
+    do {
+        r = waitpid( pid, &status, 0 );
+    } while (r == -1 && errno == EINTR);
+    r != -1 || cut_FatalExit("cannot wait for unit");
+    result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
+    result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+    result->failed |= result->returnCode ||  result->signal;
+    close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 }
 
 CUT_PRIVATE int testReadWholeFile(int fd, char *buffer, size_t length) {

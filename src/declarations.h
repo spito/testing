@@ -9,6 +9,10 @@
 CUT_NORETURN int cut_FatalExit(const char *reason);
 CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
 void cut_Register(cut_Instance instance, const char *name);
+CUT_PRIVATE int cut_Help();
+CUT_PRIVATE void cut_ResetLocalMessage();
+CUT_PRIVATE int cut_SendLocalMessage(struct cut_Fragment *message);
+CUT_PRIVATE int cut_ReadLocalMessage(struct cut_Fragment *message);
 CUT_PRIVATE void cut_SendOK(int counter);
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 void cut_Stop(const char *text, const char *file, size_t line);
@@ -32,8 +36,11 @@ CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result);
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result);
 CUT_PRIVATE int cut_Runner(int argc, char **argv);
+CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitResult *result);
 
 // platform specific functions
+CUT_PRIVATE void cut_RedirectIO();
+CUT_PRIVATE void cut_ResumeIO();
 CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message);
 CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message);
 CUT_PRIVATE void cut_PreRun();
