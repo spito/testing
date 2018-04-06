@@ -73,8 +73,10 @@ def processFile(context):
         context.addError()
         print('Failed to open {}'.format(context.file()))
 
-
-if len(sys.argv) > 2:
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('invalid number of arguments')
+        sys.exit(1)
     context = Context(sys.argv[1])
     processFile(context)
 

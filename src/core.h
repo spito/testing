@@ -1,10 +1,12 @@
 #ifndef CUT_CORE_H
 #define CUT_CORE_H
 
-#if !defined(CUT) && !defined(DEBUG)
+#if !defined(CUT) && !defined(DEBUG) && !defined(CUT_MAIN)
 
 # define ASSERT(e) (void)0
 # define ASSERT_FILE(f, content) (void)0
+# define CHECK(e) (void)0
+# define CHECK_FILE(f, content) (void)0
 # define TEST(name) static void unitTest_ ## name()
 # define SUBTEST(name) if (0)
 # define REPEATED_SUBTEST(name, count) if (0)
@@ -14,7 +16,8 @@
 
 #else
 
-#pragma GCC system_header
+# pragma GCC system_header
+# pragma warning(push, 0)
 
 # define CUT_PRIVATE static
 
@@ -52,6 +55,15 @@
         cut_Stop("content of file is not equal", __FILE__, __LINE__);           \
     } } while(0)
 
+# define CHECK(e) do { if (!(e)) {                                              \
+        cut_Check(#e, __FILE__, __LINE__);                                      \
+    } } while(0)
+
+# define CHECK_FILE(f, content) do {                                            \
+    if (!cut_File(f, content)) {                                                \
+        cut_Check("content of file is not equal", __FILE__, __LINE__);          \
+    } } while(0)
+
 # define TEST(name)                                                             \
     void cut_instance_ ## name(int *, int);                                     \
     CUT_CONSTRUCTOR(cut_Register ## name) {                                     \
@@ -82,6 +94,7 @@ typedef void(*cut_Instance)(int *, int);
 void cut_Register(cut_Instance instance, const char *name);
 int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
+void cut_Check(const char *text, const char *file, size_t line);
 void cut_Subtest(int number, const char *name);
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 
@@ -93,11 +106,11 @@ void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 #  include <stdarg.h>
 
 
-struct cut_Debug {
+struct cut_Info {
     char *message;
     char *file;
     int line;
-    struct cut_Debug *next;
+    struct cut_Info *next;
 };
 
 enum cut_MessageType {
@@ -107,7 +120,8 @@ enum cut_MessageType {
     cut_MESSAGE_OK,
     cut_MESSAGE_FAIL,
     cut_MESSAGE_EXCEPTION,
-    cut_MESSAGE_TIMEOUT
+    cut_MESSAGE_TIMEOUT,
+    cut_MESSAGE_CHECK
 };
 
 struct cut_UnitResult {
@@ -123,7 +137,8 @@ struct cut_UnitResult {
     int returnCode;
     int signal;
     int timeouted;
-    struct cut_Debug *debug;
+    struct cut_Info *debug;
+    struct cut_Info *check;
 };
 
 struct cut_UnitTest {
@@ -148,6 +163,7 @@ struct cut_Arguments {
     int matchSize;
     char **match;
     const char *selfName;
+    int shortPath;
 };
 
 enum cut_ReturnCodes {
@@ -216,10 +232,12 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     static const char *help = "--help";
     static const char *timeout = "--timeout";
     static const char *noFork = "--no-fork";
+    static const char *doFork = "--fork";
     static const char *noColor = "--no-color";
     static const char *output = "--output";
     static const char *subtest = "--subtest";
     static const char *exactTest = "--test";
+    static const char *shortPath = "--short-path";
     cut_arguments.help = 0;
     cut_arguments.timeout = CUT_TIMEOUT;
     cut_arguments.noFork = CUT_NO_FORK;
@@ -230,6 +248,7 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     cut_arguments.testId = -1;
     cut_arguments.subtestId = -1;
     cut_arguments.selfName = argv[0];
+    cut_arguments.shortPath = -1;
 
     for (int i = 1; i < argc; ++i) {
         if (strncmp(argv[i], "--", 2)) {
@@ -248,6 +267,10 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
         }
         if (!strcmp(noFork, argv[i])) {
             cut_arguments.noFork = 1;
+            continue;
+        }
+        if (!strcmp(doFork, argv[i])) {
+            cut_arguments.noFork = 0;
             continue;
         }
         if (!strcmp(noColor, argv[i])) {
@@ -274,6 +297,12 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
                 cut_ErrorExit("option %s requires numeric argument", subtest);
             continue;
         }
+        if (!strcmp(shortPath, argv[i])) {
+            ++i;
+            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.shortPath))
+                cut_ErrorExit("option %s requires numeric argument", shortPath);
+            continue;
+        }
         cut_ErrorExit("option %s is not recognized", argv[i]);
     }
     if (!cut_arguments.matchSize)
@@ -285,7 +314,8 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     for (int i = 1; i < argc; ++i) {
         if (!strncmp(argv[i], "--", 2)) {
             if (!strcmp(timeout, argv[i]) || !strcmp(output, argv[i])
-             || !strcmp(subtest, argv[i]) || !strcmp(exactTest, argv[i]))
+             || !strcmp(subtest, argv[i]) || !strcmp(exactTest, argv[i])
+             || !strcmp(shortPath, argv[i]))
             {
                 ++i;
             }
@@ -295,6 +325,15 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     }
 }
 
+CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info) {
+    while (info) {
+        struct cut_Info *current = info;
+        info = info->next;
+        free(current->message);
+        free(current->file);
+        free(current);
+    }
+}
 
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result) {
     free(result->name);
@@ -302,13 +341,8 @@ CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result) {
     free(result->statement);
     free(result->exceptionType);
     free(result->exceptionMessage);
-    while (result->debug) {
-        struct cut_Debug *current = result->debug;
-        result->debug = result->debug->next;
-        free(current->message);
-        free(current->file);
-        free(current);
-    }
+    cut_CleanInfo(result->debug);
+    cut_CleanInfo(result->check);
 }
 
 CUT_PRIVATE int cut_Help() {
@@ -321,6 +355,7 @@ CUT_PRIVATE int cut_Help() {
     "\t--no-fork         Disable forking. Timeout is turned off.\n"
     "\t--no-color        Turn off colors.\n"
     "\t--output <file>   Redirect output to the file.\n"
+    "\t--short-path <N>  Make filenames in the output shorter.\n"
     "Hidden options (for internal purposes only):\n"
     "\t--test <N>        Run test of index N.\n"
     "\t--subtest <N>     Run subtest of index N (for all tests).\n"
@@ -339,6 +374,8 @@ int main(int argc, char **argv) {
 }
 
 #  undef CUT_PRIVATE
+
+# pragma warning(pop)
 
 # endif // CUT_MAIN
 

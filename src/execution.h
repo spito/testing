@@ -78,6 +78,42 @@ CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *
     return cut_arguments.noColor ? basicOk : ok;
 }
 
+CUT_PRIVATE const char *cut_ShortPath(const char *path) {
+    enum { MAX_PATH = 80 };
+    static char shortenedPath[MAX_PATH + 1];
+    char *cursor = shortenedPath;
+    const char *dots = "...";
+    const size_t dotsLength = strlen(dots);
+    size_t pathLength = strlen(path);
+    if (cut_arguments.shortPath < 0 || pathLength <= cut_arguments.shortPath)
+        return path;
+    if (cut_arguments.shortPath > MAX_PATH)
+        cut_arguments.shortPath = MAX_PATH;
+    
+    int fullName = 0;
+    const char *end = path + strlen(path);
+    const char *name = end;
+    for (; end - name < cut_arguments.shortPath && path < name; --name) {
+        if (*name == '/' || *name == '\\') {
+            fullName = 1;
+            break;
+        }
+    }
+    size_t consumed = (end - name) + dotsLength;
+    if (consumed < cut_arguments.shortPath) {
+        size_t remaining = cut_arguments.shortPath - consumed;
+        size_t firstPart = remaining - remaining / 2;
+        strncpy(cursor, path, firstPart);
+        cursor += firstPart;
+        strcpy(cursor, dots);
+        cursor += dotsLength;
+        remaining -= firstPart;
+        name -= remaining;
+    }
+    strcpy(cursor, name);
+    return shortenedPath;
+}
+
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result) {
     static const char *shortIndent = "    ";
     static const char *longIndent = "        ";
@@ -113,6 +149,10 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
     }
     fprintf(cut_output, "%s\n", status);
     if (result->failed) {
+        for (const struct cut_Info *current = result->check; current; current = current->next) {
+            fprintf(cut_output, "%scheck '%s' (%s:%d)\n", indent, current->message,
+                    cut_ShortPath(current->file), current->line);
+        }
         if (result->timeouted)
             fprintf(cut_output, "%stimeouted (%d s)\n", indent, cut_arguments.timeout);
         else if (result->signal)
@@ -121,7 +161,7 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
             fprintf(cut_output, "%sreturn code: %d\n", indent, result->returnCode);
         if (result->statement && result->file && result->line)
             fprintf(cut_output, "%sassert '%s' (%s:%d)\n", indent,
-                    result->statement, result->file, result->line);
+                    result->statement, cut_ShortPath(result->file), result->line);
         if (result->exceptionType && result->exceptionMessage)
             fprintf(cut_output, "%sexception %s: %s\n", indent,
                     result->exceptionType, result->exceptionMessage);
@@ -131,8 +171,9 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
         fprintf(cut_output, "%sdebug messages:\n", indent);
         extended = 1;
     }
-    for (const struct cut_Debug *current = result->debug; current; current = current->next) {
-        fprintf(cut_output, "%s  %s (%s:%d)\n", indent, current->message, current->file, current->line);
+    for (const struct cut_Info *current = result->debug; current; current = current->next) {
+        fprintf(cut_output, "%s  %s (%s:%d)\n", indent, current->message,
+                cut_ShortPath(current->file), current->line);
     }
     if (extended)
         fprintf(cut_output, "\n");

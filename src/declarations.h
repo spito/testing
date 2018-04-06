@@ -15,7 +15,8 @@ CUT_PRIVATE int cut_SendLocalMessage(struct cut_Fragment *message);
 CUT_PRIVATE int cut_ReadLocalMessage(struct cut_Fragment *message);
 CUT_PRIVATE void cut_SendOK(int counter);
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
-void cut_Stop(const char *text, const char *file, size_t line);
+CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
+void cut_Check(const char *text, const char *file, size_t line);
 #  ifdef __cplusplus
 CUT_PRIVATE int cut_StopException(const char *type, const char *text);
 #  endif
@@ -24,7 +25,7 @@ CUT_PRIVATE void cut_Timeouted();
 void cut_Subtest(int number, const char *name);
 CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result);
 CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name);
-CUT_PRIVATE int cut_AddDebug(struct cut_UnitResult *result,
+CUT_PRIVATE int cut_AddInfo(struct cut_Info **info,
     size_t line, const char *file, const char *text);
 CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result,
     size_t line, const char *file, const char *text);
@@ -33,7 +34,9 @@ CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result,
 CUT_PRIVATE void cut_ParseArguments(int argc, char **argv);
 CUT_PRIVATE int cut_SkipUnit(int testId);
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *length);
+CUT_PRIVATE const char *cut_ShortPath(const char *path);
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result);
+CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info);
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result);
 CUT_PRIVATE int cut_Runner(int argc, char **argv);
 CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitResult *result);

@@ -1,7 +1,7 @@
 
 include_directories(AFTER SYSTEM "${CMAKE_SOURCE_DIR}/1header")
 
-add_definitions(-DCUT)
+add_definitions(-DCUT -Wall -Wextra -pedantic)
 
 add_library(main-cpp main.cpp)
 add_library(main-c main.c)

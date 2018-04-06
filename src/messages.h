@@ -76,6 +76,21 @@ void cut_Stop(const char *text, const char *file, size_t line) {
     longjmp(cut_executionPoint, 1);
 }
 
+void cut_Check(const char *text, const char *file, size_t line) {
+    struct cut_Fragment message;
+    cut_FragmentInit(&message, cut_MESSAGE_CHECK);
+    size_t *pLine = (size_t*)cut_FragmentReserve(&message, sizeof(size_t), NULL);
+    if (!pLine)
+        cut_FatalExit("cannot insert check:fragment:line");
+    *pLine = line;
+    cut_FragmentAddString(&message, file) || cut_FatalExit("cannot insert check:fragment:file");
+    cut_FragmentAddString(&message, text) || cut_FatalExit("cannot insert check:fragment:text");
+    cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize check:fragment");
+
+    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send check:message");
+    cut_FragmentClean(&message);
+}
+
 CUT_PRIVATE int cut_StopException(const char *type, const char *text) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_EXCEPTION);
@@ -162,8 +177,8 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
             break;
         case cut_MESSAGE_DEBUG:
             message.sliceCount == 3 || cut_FatalExit("invalid debug:message format");
-            cut_AddDebug(
-                result,
+            cut_AddInfo(
+                &result->debug,
                 *(size_t *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
@@ -195,6 +210,17 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
             result->timeouted = 1;
             result->failed = 1;
             break;
+        case cut_MESSAGE_CHECK:
+            message.sliceCount == 3 || cut_FatalExit("invalid check:message format");
+            cut_AddInfo(
+                &result->check,
+                *(size_t *)cut_FragmentGet(&message, 0, NULL),
+                cut_FragmentGet(&message, 1, NULL),
+                cut_FragmentGet(&message, 2, NULL)
+            ) || cut_FatalExit("cannot add check");
+            result->failed = 1;
+            repeat = 1;
+            break;
         }
         cut_FragmentClean(&message);
     } while (repeat);
@@ -210,9 +236,9 @@ CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, co
     return 1;
 }
 
-CUT_PRIVATE int cut_AddDebug(struct cut_UnitResult *result,
+CUT_PRIVATE int cut_AddInfo(struct cut_Info **info,
                              size_t line, const char *file, const char *text) {
-    struct cut_Debug *item = (struct cut_Debug *)malloc(sizeof(struct cut_Debug));
+    struct cut_Info *item = (struct cut_Info *)malloc(sizeof(struct cut_Info));
     if (!item)
         return 0;
     item->file = (char *)malloc(strlen(file) + 1);
@@ -230,11 +256,10 @@ CUT_PRIVATE int cut_AddDebug(struct cut_UnitResult *result,
     strcpy(item->message, text);
     item->line = line;
     item->next = NULL;
-    struct cut_Debug **ptr = &result->debug;
-    while (*ptr) {
-        ptr = &(*ptr)->next;
+    while (*info) {
+        info = &(*info)->next;
     }
-    *ptr = item;
+    *info = item;
     return 1;
 }
 
