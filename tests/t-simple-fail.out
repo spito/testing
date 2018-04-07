@@ -1,0 +1,1 @@
+b"[  1] fail.................................................................\x1b[1;31mFAIL\x1b[0m\n    assert '0' (simple-fail.c:4)\n\n\nSummary:\n  tests:       1\n  succeeded:   0\n  skipped:     0\n  failed:      1\n"

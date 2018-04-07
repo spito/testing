@@ -8,6 +8,7 @@ add_library(main-c main.c)
 
 
 file(GLOB TESTS t-*.c t-*.cpp)
+list(APPEND TESTS "")
 
 foreach(TEST_FILE ${TESTS}) 
     get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
@@ -24,17 +25,17 @@ foreach(TEST_FILE ${TESTS})
     endif()
 
     if (TEST_DEP)
+        list(APPEND TESTS ${TEST_NAME})
         add_executable(${TEST_NAME} ${TEST_FILE})
         target_link_libraries(${TEST_NAME} PRIVATE ${TEST_DEP})
     endif()
 endforeach()
 
 
-
 add_custom_target(
     check
-    COMMAND "${CMAKE_SOURCE_DIR}/py/check.py" tests/check.yml
-    DEPENDS test
+    COMMAND "${CMAKE_SOURCE_DIR}/py/check.py" "${CMAKE_BINARY_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests"
+    DEPENDS ${TESTS}
 )
 
 
