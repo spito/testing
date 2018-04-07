@@ -64,6 +64,8 @@
 #ifndef CUT_WINDOWS_DEFINE_H
 #define CUT_WINDOWS_DEFINE_H
 
+#define _WIN32_WINNT 0x0500
+
 #if defined(__GNUC__) || defined(__clang)
 # define CUT_NORETURN __attribute__((noreturn))
 # define CUT_CONSTRUCTOR(name) __attribute__((constructor)) static void name()
@@ -197,7 +199,7 @@ struct cut_UnitTestArray {
 
 struct cut_Arguments {
     int help;
-    int timeout;
+    unsigned timeout;
     int noFork;
     int noColor;
     char *output;
@@ -228,7 +230,7 @@ enum cut_ReturnCodes {
 CUT_PRIVATE struct cut_Arguments cut_arguments;
 CUT_PRIVATE struct cut_UnitTestArray cut_unitTests = {0, 0, NULL};
 CUT_PRIVATE FILE *cut_output = NULL;
-CUT_PRIVATE int cut_spawnChild = 0;
+CUT_PRIVATE int cut_outputsRedirected = 0;
 CUT_PRIVATE int cut_pipeWrite = 0;
 CUT_PRIVATE int cut_pipeRead = 0;
 CUT_PRIVATE int cut_originalStdOut = 0;
@@ -485,6 +487,8 @@ CUT_NORETURN int cut_FatalExit(const char *reason);
 CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
 void cut_Register(cut_Instance instance, const char *name);
 CUT_PRIVATE int cut_Help();
+CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message);
+CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message);
 CUT_PRIVATE void cut_ResetLocalMessage();
 CUT_PRIVATE int cut_SendLocalMessage(struct cut_Fragment *message);
 CUT_PRIVATE int cut_ReadLocalMessage(struct cut_Fragment *message);
@@ -517,11 +521,11 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv);
 CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitResult *result);
 
 // platform specific functions
+CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes);
+CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes);
 CUT_PRIVATE void cut_RedirectIO();
 CUT_PRIVATE void cut_ResumeIO();
-CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message);
-CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message);
-CUT_PRIVATE void cut_PreRun();
+CUT_PRIVATE int cut_PreRun();
 CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *result);
 int cut_File(FILE *file, const char *content);
 
@@ -533,6 +537,39 @@ int cut_File(FILE *file, const char *content);
 #ifndef CUT_MAIN
 #error "cannot be standalone"
 #endif
+
+CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
+    size_t remaining = message->serializedLength;
+    size_t position = 0;
+
+    ssize_t r;
+    while (remaining && (r = cut_Write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
+        position += r;
+        remaining -= r;
+    }
+    return r != -1;
+}
+
+CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
+    cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
+
+    message->serialized = NULL;
+    message->serializedLength = 0;
+    ssize_t r = 0;
+    ssize_t toRead = 0;
+    while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
+        size_t processed = cut_FragmentReceiveProcessed(&status);
+
+        if (message->serializedLength < processed + toRead) {
+            message->serializedLength = processed + toRead;
+            message->serialized = (char *)realloc(message->serialized, message->serializedLength);
+            if (!message->serialized)
+                cut_FatalExit("cannot allocate memory for reading a message");
+        }
+        r = cut_Read(cut_pipeRead, message->serialized + processed, toRead);
+    }
+    return toRead != -1;
+}
 
 CUT_PRIVATE void cut_ResetLocalMessage() {
     cut_localMessageCursor = NULL;
@@ -1022,7 +1059,14 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     cut_output = stdout;
     cut_ParseArguments(argc, argv);
 
-    cut_PreRun();
+    void (*unitRunner)(int, int, struct cut_UnitResult *) =
+        cut_arguments.noFork ? cut_RunUnitForkless : cut_RunUnit;
+
+    int failed = 0;
+    int executed = 0;
+
+    if (cut_PreRun())
+        goto cleanup;
 
     if (cut_arguments.output) {
         cut_output = fopen(cut_arguments.output, "w");
@@ -1033,11 +1077,6 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     if (cut_arguments.help)
         return cut_Help();
 
-    void (*unitRunner)(int, int, struct cut_UnitResult *) =
-        cut_arguments.noFork ? cut_RunUnitForkless : cut_RunUnit;
-
-    int failed = 0;
-    int executed = 0;
     for (int i = 0; i < cut_unitTests.size; ++i) {
         if (cut_SkipUnit(i))
             continue;
@@ -1094,10 +1133,11 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
             executed - failed,
             cut_unitTests.size - executed,
             failed);
-    free(cut_unitTests.tests);
-    free(cut_arguments.match);
     if (cut_arguments.output)
         fclose(cut_output);
+cleanup:
+    free(cut_unitTests.tests);
+    free(cut_arguments.match);
     return failed;
 }
 
@@ -1116,6 +1156,7 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
 # include <signal.h>
 
 CUT_PRIVATE void cut_RedirectIO() {
+    cut_outputsRedirected = 1;
     cut_stdout = tmpfile();
     cut_stderr = tmpfile();
     cut_originalStdOut = dup(1);
@@ -1132,42 +1173,19 @@ CUT_PRIVATE void cut_ResumeIO() {
     close(2) != -1 || cut_FatalExit("cannot close file");
     dup2(cut_originalStdOut, 1);
     dup2(cut_originalStdErr, 2);
+    cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
-    size_t remaining = message->serializedLength;
-    size_t position = 0;
-
-    ssize_t r;
-    while (remaining && (r = write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
-        position += r;
-        remaining -= r;
-    }
-    return r != -1;
+CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+    return read(fd, destination, bytes);
 }
 
-CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
-    cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
-
-    message->serialized = NULL;
-    message->serializedLength = 0;
-    ssize_t r = 0;
-    ssize_t toRead = 0;
-    while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
-        size_t processed = cut_FragmentReceiveProcessed(&status);
-
-        if (message->serializedLength < processed + toRead) {
-            message->serializedLength = processed + toRead;
-            message->serialized = (char *)realloc(message->serialized, message->serializedLength);
-            if (!message->serialized)
-                cut_FatalExit("cannot allocate memory for reading a message");
-        }
-        r = read(cut_pipeRead, message->serialized + processed, toRead);
-    }
-    return toRead != -1;
+CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+    return write(fd, source, bytes);
 }
 
-CUT_PRIVATE void cut_PreRun() {
+CUT_PRIVATE int cut_PreRun() {
+    return 0;
 }
 
 CUT_PRIVATE void cut_SigAlrm(CUT_UNUSED(int signum)) {
@@ -1191,7 +1209,6 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     if (pid == -1)
         cut_FatalExit("cannot fork");
     if (!pid) {
-        cut_spawnChild = 1;
         r = prctl(PR_SET_PDEATHSIG, SIGTERM);
         if (r == -1)
             cut_FatalExit("cannot set child death signal");
@@ -1226,9 +1243,9 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 }
 
-CUT_PRIVATE int testReadWholeFile(int fd, char *buffer, size_t length) {
+CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        int rv = read(fd, buffer, length);
+        ssize_t rv = read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;
@@ -1252,7 +1269,7 @@ int cut_File(FILE *f, const char *content) {
     buf = (char*)malloc(length);
     if (!buf)
         cut_FatalExit("cannot allocate memory for file");
-    if (testReadWholeFile(fd, buf, length))
+    if (cut_ReadWholeFile(fd, buf, length))
         cut_FatalExit("cannot read whole file");
 
     result = memcmp(content, buf, length) == 0;
@@ -1274,6 +1291,7 @@ leave:
 # include <signal.h>
 
 CUT_PRIVATE void cut_RedirectIO() {
+    cut_outputsRedirected = 1;
     cut_stdout = tmpfile();
     cut_stderr = tmpfile();
     cut_originalStdOut = dup(1);
@@ -1290,42 +1308,19 @@ CUT_PRIVATE void cut_ResumeIO() {
     close(2) != -1 || cut_FatalExit("cannot close file");
     dup2(cut_originalStdOut, 1);
     dup2(cut_originalStdErr, 2);
+    cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
-    size_t remaining = message->serializedLength;
-    size_t position = 0;
-
-    ssize_t r;
-    while (remaining && (r = write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
-        position += r;
-        remaining -= r;
-    }
-    return r != -1;
+CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+    return read(fd, destination, bytes);
 }
 
-CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
-    cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
-
-    message->serialized = NULL;
-    message->serializedLength = 0;
-    ssize_t r = 0;
-    ssize_t toRead = 0;
-    while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
-        size_t processed = cut_FragmentReceiveProcessed(&status);
-
-        if (message->serializedLength < processed + toRead) {
-            message->serializedLength = processed + toRead;
-            message->serialized = (char *)realloc(message->serialized, message->serializedLength);
-            if (!message->serialized)
-                cut_FatalExit("cannot allocate memory for reading a message");
-        }
-        r = read(cut_pipeRead, message->serialized + processed, toRead);
-    }
-    return toRead != -1;
+CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+    return write(fd, source, bytes);
 }
 
-CUT_PRIVATE void cut_PreRun() {
+CUT_PRIVATE int cut_PreRun() {
+    return 0;
 }
 
 CUT_PRIVATE void cut_SigAlrm(CUT_UNUSED(int signum)) {
@@ -1349,11 +1344,10 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     if (pid == -1)
         cut_FatalExit("cannot fork");
     if (!pid) {
-        cut_spawnChild = 1;
         /// TODO: missing feature - kill child when parent dies
         close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 
-        if (!cut_arguments.noFork && cut_arguments.timeout) {
+        if (cut_arguments.timeout) {
             struct sigaction sa;
             memset(&sa, 0, sizeof(sa));
             sa.sa_handler = cut_SigAlrm;
@@ -1367,7 +1361,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
         free(cut_arguments.match);
         if (cut_arguments.output)
             fclose(cut_output);
-        exit(cut_OK_EXIT);
+        exit(cut_NORMAL_EXIT);
     }
     // parent process only
     int status = 0;
@@ -1383,9 +1377,9 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 }
 
-CUT_PRIVATE int testReadWholeFile(int fd, char *buffer, size_t length) {
+CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        int rv = read(fd, buffer, length);
+        ssize_t rv = read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;
@@ -1409,7 +1403,7 @@ int cut_File(FILE *f, const char *content) {
     buf = (char*)malloc(length);
     if (!buf)
         cut_FatalExit("cannot allocate memory for file");
-    if (testReadWholeFile(fd, buf, length))
+    if (cut_ReadWholeFile(fd, buf, length))
         cut_FatalExit("cannot read whole file");
 
     result = memcmp(content, buf, length) == 0;
@@ -1430,58 +1424,78 @@ leave:
 
 CUT_PRIVATE HANDLE cut_jobGroup;
 
-CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
-    size_t remaining = message->serializedLength;
-    size_t position = 0;
+CUT_PRIVATE void cut_RedirectIO() {
+    cut_outputsRedirected = 1;
+    cut_stdout = tmpfile();
+    cut_stderr = tmpfile();
+    cut_originalStdOut = _dup(1);
+    cut_originalStdErr = _dup(2);
 
-    ssize_t r;
-    while (remaining && (r = _write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
-        position += r;
-        remaining -= r;
-    }
-    return r != -1;
+    _dup2(_fileno(cut_stdout), 1);
+    _dup2(_fileno(cut_stderr), 2);
 }
 
-CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
-    cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
+CUT_PRIVATE void cut_ResumeIO() {
+    fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
+    fclose(cut_stderr) != -1 || cut_FatalExit("cannot close file");
+    _close(1) != -1 || cut_FatalExit("cannot close file");
+    _close(2) != -1 || cut_FatalExit("cannot close file");
+    _dup2(cut_originalStdOut, 1);
+    _dup2(cut_originalStdErr, 2);
 
-    message->serialized = NULL;
-    message->serializedLength = 0;
-    ssize_t r = 0;
-    ssize_t toRead = 0;
-    while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
-        size_t processed = cut_FragmentReceiveProcessed(&status);
-
-        if (message->serializedLength < processed + toRead) {
-            message->serializedLength = processed + toRead;
-            message->serialized = (char *)realloc(message->serialized, message->serializedLength);
-            if (!message->serialized)
-                cut_FatalExit("cannot allocate memory for reading a message");
-        }
-        r = read(cut_pipeRead, message->serialized + processed, toRead);
-    }
-    return toRead != -1;
+    cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE void cut_PreRun() {
+CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+    return _read(fd, destination, bytes);
+}
+
+CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+    return _write(fd, source, bytes);
+}
+
+CUT_PRIVATE void cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(int timerEvent)) {
+    cut_Timeouted();
+    ExitProcess(cut_NORMAL_EXIT);
+}
+
+CUT_PRIVATE int cut_PreRun() {
+    if (!cut_arguments.noFork && cut_arguments.testId < 0) {
+        // create a group of processes to be able to kill unit when parent dies
+        jobGroup = CreateJobObject(NULL, NULL);
+        if (!jobGroup)
+            cut_FatalExit("cannot create jobGroup object");
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {0};
+        jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||cut_FatalExit("cannot SetInformationJobObject");
+    }
     if (cut_arguments.testId < 0)
-        return;
-    // TODO setup timer (threads+exit?)
+        return 0;
+
+    SetErrorMode(SEM_NOGPFAULTERRORBOX);
+
+    HANDLE timer = NULL;
+    if (cut_arguments.timeout) {
+        CreateTimerQueueTimer(&timer, NULL, cut_TimerCallback, NULL, 
+                              cut_arguments.timeout * 1000, 0, WT_EXECUTEONLYONCE) || cut_FatalExit("cannot create timer");
+    }
+
+    cut_pipeWrite = _dup(1);
+    _setmode(cut_pipeWrite, _O_BINARY);
+
     cut_ExceptionBypass(cut_arguments.testId, cut_arguments.subtestId);
-    // TODO check if something is needed to send (everything should be handled in bypass)
+
+    _close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
+
+    if (timer) {
+        DeleteTimerQueueTimer(NULL, timer, NULL) || cut_FatalExit("cannot delete timer");
+    }
+
+    return 1;
 }
 
 
 CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *result) {
-
-   // create a group of processes to be able to kill unit when parent dies
-    jobGroup = CreateJobObject( NULL, NULL );
-    if ( !jobGroup )
-        cut_FatalExit("cannot create jobGroup object");
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
-    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    if (!SetInformationJobObject(jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)))
-        cut_FatalExit("cannot SetInformationJobObject");
 
     SECURITY_ATTRIBUTES saAttr;
     saAttr.nLength = sizeof(saAttr);
@@ -1502,71 +1516,48 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     startInfo.cb = sizeof(startInfo);
     startInfo.dwFlags |= STARTF_USESTDHANDLES;
     startInfo.hStdOutput = childOutWrite;
-    startInfo.hStdError = childDebugWrite;
 
-    const char *fmtString = "\"%s\" --test %i --subtest %i";
-    int length = snprintf(NULL, 0, fmtString, cut_arguments.selfName, testId.name, subtest);
+    const char *fmtString = "\"%s\" --test %i --subtest %i --timeout %i";
+    int length = snprintf(NULL, 0, fmtString, cut_arguments.selfName, testId.name, subtest,
+                          cut_arguments.timeout);
     char *command = malloc(length + 1);
-    sprintf(command, fmtString, cut_arguments.selfName, testId, subtest);
+    sprintf(command, fmtString, cut_arguments.selfName, testId, subtest, cut_arguments.timeout);
             
-    if (!CreateProcessA(cut_arguments.selfName,
-                        command,
-                        NULL,
-                        NULL,
-                        TRUE,
-                        CREATE_BREAKAWAY_FROM_JOB | CREATE_SUSPENDED,
-                        NULL,
-                        NULL,
-                        &startInfo,
-                        &procInfo)) {
-        cut_FatalExit("cannot create process");
-    }
-    if (!AssignProcessToJobObject(cut_jobGroup, procInfo.hProcess))
-        cut_FatalExit("cannot assign process to job object");
-    if (ResumeThread(procInfo.hThread) != 1)
-        cut_FatalExit("cannot resume thread");
+    CreateProcessA(cut_arguments.selfName,
+                   command,
+                   NULL,
+                   NULL,
+                   TRUE,
+                   CREATE_BREAKAWAY_FROM_JOB | CREATE_SUSPENDED,
+                   NULL,
+                   NULL,
+                   &startInfo,
+                   &procInfo) || cut_FatalExit("cannot create process");
+    free(command);
 
-    WaitForSingleObject(procInfo.hProcess, INFINITE);
+    AssignProcessToJobObject(cut_jobGroup, procInfo.hProcess) || cut_FatalExit("cannot assign process to job object");
+    ResumeThread(procInfo.hThread) == 1 || cut_FatalExit("cannot resume thread");
+
+    cut_pipeRead = _open_osfhandle(childOutRead, 0);
+    cut_PipeReader(result);
+
+    WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || cut_FatalExit("cannot wait for single object");
     DWORD childResult;
-    GetExitCodeProcess( procInfo.hProcess, &childResult );
-    CloseHandle( procInfo.hProcess );
-    CloseHandle( procInfo.hThread );
+    GetExitCodeProcess(procInfo.hProcess, &childResult) || cut_FatalExit("cannot get exit code");
+    CloseHandle(procInfo.hProcess) || cut_FatalExit("cannot close handle");
+    CloseHandle(procInfo.hThread) || cut_FatalExit("cannot close handle");
 
-    if (childResult) {
-        testInfo()->result = testAbnormal;
-        testInfo()->returnCode = childResult;
-        testInfo()->signal = 0;
-    }
-    else {
-        DWORD read;
-        ReadFile( childOutRead, testInfo(), sizeof( struct TestInfo ), &read, NULL );
-    }
+    result->returnCode = childResult;
+    result->signal = 0;
+    result->failed |= result->returnCode;
 
-    int capacity = 1024;
-    int size = 0;
-    testDebug = malloc( capacity + 1 );
-    while ( 1 ) {
-        DWORD read;
-        ReadFile( childDebugRead, testDebug + size, capacity - size, &read, NULL );
-        size += read;
-        if ( size != capacity )
-            break;
-        capacity += 1024;
-        char *resized = realloc( testDebug, capacity + 1 );
-        if ( !resized )
-            break;
-        testDebug = resized;
-    }
-    testDebug[ size ] = '\0';
+    _close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
+    CloseHandle(childOutWrite) || cut_FatalExit("cannot close handle");
+}
 
-    CloseHandle( childOutRead );
-    CloseHandle( childOutWrite );
-    CloseHandle( childDebugRead );
-    CloseHandle( childDebugWrite );}
-
-CUT_PRIVATE int testReadWholeFile(int fd, char *buffer, size_t length) {
+CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        int rv = _read(fd, buffer, length);
+        ssize_t rv = _read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;
@@ -1590,7 +1581,7 @@ int cut_File(FILE *f, const char *content) {
     buf = (char*)malloc(length);
     if (!buf)
         cut_FatalExit("cannot allocate memory for file");
-    if (testReadWholeFile(fd, buf, length))
+    if (cut_ReadWholeFile(fd, buf, length))
         cut_FatalExit("cannot read whole file");
 
     result = memcmp(content, buf, length) == 0;
@@ -1606,7 +1597,7 @@ leave:
 #  endif
 
 CUT_NORETURN int cut_FatalExit(const char *reason) {
-    if (cut_spawnChild) {
+    if (cut_outputsRedirected) {
         FILE *log = fopen(cut_emergencyLog, "w");
         if (log) {
             fprintf(log, "CUT internal error during unit test: %s\n", reason);
@@ -1677,7 +1668,7 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
         }
         if (!strcmp(timeout, argv[i])) {
             ++i;
-            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.timeout))
+            if (i >= argc || !sscanf(argv[i], "%u", &cut_arguments.timeout))
                 cut_ErrorExit("option %s requires numeric argument", timeout);
             continue;
         }
