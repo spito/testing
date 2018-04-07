@@ -154,7 +154,7 @@ struct cut_UnitTestArray {
 
 struct cut_Arguments {
     int help;
-    int timeout;
+    unsigned timeout;
     int noFork;
     int noColor;
     char *output;
@@ -190,7 +190,7 @@ enum cut_ReturnCodes {
 #  endif
 
 CUT_NORETURN int cut_FatalExit(const char *reason) {
-    if (cut_spawnChild) {
+    if (cut_outputsRedirected) {
         FILE *log = fopen(cut_emergencyLog, "w");
         if (log) {
             fprintf(log, "CUT internal error during unit test: %s\n", reason);
@@ -261,7 +261,7 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
         }
         if (!strcmp(timeout, argv[i])) {
             ++i;
-            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.timeout))
+            if (i >= argc || !sscanf(argv[i], "%u", &cut_arguments.timeout))
                 cut_ErrorExit("option %s requires numeric argument", timeout);
             continue;
         }

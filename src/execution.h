@@ -193,7 +193,14 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     cut_output = stdout;
     cut_ParseArguments(argc, argv);
 
-    cut_PreRun();
+    void (*unitRunner)(int, int, struct cut_UnitResult *) =
+        cut_arguments.noFork ? cut_RunUnitForkless : cut_RunUnit;
+
+    int failed = 0;
+    int executed = 0;
+
+    if (cut_PreRun())
+        goto cleanup;
 
     if (cut_arguments.output) {
         cut_output = fopen(cut_arguments.output, "w");
@@ -204,11 +211,6 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     if (cut_arguments.help)
         return cut_Help();
 
-    void (*unitRunner)(int, int, struct cut_UnitResult *) =
-        cut_arguments.noFork ? cut_RunUnitForkless : cut_RunUnit;
-
-    int failed = 0;
-    int executed = 0;
     for (int i = 0; i < cut_unitTests.size; ++i) {
         if (cut_SkipUnit(i))
             continue;
@@ -265,10 +267,11 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
             executed - failed,
             cut_unitTests.size - executed,
             failed);
-    free(cut_unitTests.tests);
-    free(cut_arguments.match);
     if (cut_arguments.output)
         fclose(cut_output);
+cleanup:
+    free(cut_unitTests.tests);
+    free(cut_arguments.match);
     return failed;
 }
 

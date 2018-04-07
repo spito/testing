@@ -10,7 +10,7 @@
 CUT_PRIVATE struct cut_Arguments cut_arguments;
 CUT_PRIVATE struct cut_UnitTestArray cut_unitTests = {0, 0, NULL};
 CUT_PRIVATE FILE *cut_output = NULL;
-CUT_PRIVATE int cut_spawnChild = 0;
+CUT_PRIVATE int cut_outputsRedirected = 0;
 CUT_PRIVATE int cut_pipeWrite = 0;
 CUT_PRIVATE int cut_pipeRead = 0;
 CUT_PRIVATE int cut_originalStdOut = 0;

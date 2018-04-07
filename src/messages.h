@@ -5,6 +5,39 @@
 #error "cannot be standalone"
 #endif
 
+CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
+    size_t remaining = message->serializedLength;
+    size_t position = 0;
+
+    ssize_t r;
+    while (remaining && (r = cut_Write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
+        position += r;
+        remaining -= r;
+    }
+    return r != -1;
+}
+
+CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
+    cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
+
+    message->serialized = NULL;
+    message->serializedLength = 0;
+    ssize_t r = 0;
+    ssize_t toRead = 0;
+    while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
+        size_t processed = cut_FragmentReceiveProcessed(&status);
+
+        if (message->serializedLength < processed + toRead) {
+            message->serializedLength = processed + toRead;
+            message->serialized = (char *)realloc(message->serialized, message->serializedLength);
+            if (!message->serialized)
+                cut_FatalExit("cannot allocate memory for reading a message");
+        }
+        r = cut_Read(cut_pipeRead, message->serialized + processed, toRead);
+    }
+    return toRead != -1;
+}
+
 CUT_PRIVATE void cut_ResetLocalMessage() {
     cut_localMessageCursor = NULL;
     cut_localMessageSize = 0;
