@@ -4,7 +4,6 @@
 # include <unistd.h>
 # include <sys/wait.h>
 # include <sys/types.h>
-# include <sys/prctl.h>
 # include <signal.h>
 
 CUT_PRIVATE void cut_RedirectIO() {
