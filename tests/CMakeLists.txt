@@ -1,10 +1,12 @@
 
 include_directories(AFTER SYSTEM "${CMAKE_SOURCE_DIR}/1header")
 
-add_definitions(-DCUT -Wall -Wextra -pedantic)
+add_definitions(-DCUT -Wall -Wextra -pedantic -ggdb3)
 
 add_library(main-cpp main.cpp)
+add_dependencies(main-cpp compile1header)
 add_library(main-c main.c)
+add_dependencies(main-c compile1header)
 
 
 file(GLOB TESTS t-*.c t-*.cpp)
@@ -27,7 +29,6 @@ foreach(TEST_FILE ${TESTS})
     if (TEST_DEP)
         list(APPEND TESTS ${TEST_NAME})
         add_executable(${TEST_NAME} ${TEST_FILE})
-        add_dependencies(${TEST_NAME} compile1header)
         target_link_libraries(${TEST_NAME} PRIVATE ${TEST_DEP})
     endif()
 endforeach()
