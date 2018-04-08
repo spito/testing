@@ -16,9 +16,6 @@
 
 #else
 
-# pragma GCC system_header
-# pragma warning(push, 0)
-
 # define CUT_PRIVATE static
 
 # if !defined(CUT_TIMEOUT)
@@ -33,7 +30,7 @@
 # endif
 
 # if defined(__unix)
-// 1hc substitution of src/unix-define.h
+// 1hc substitution of /home/spito/coding/testing/src/unix-define.h
 #ifndef CUT_UNIX_DEFINE_H
 #define CUT_UNIX_DEFINE_H
 
@@ -47,20 +44,21 @@
 
 #endif // CUT_UNIX_DEFINE_H
 # elif defined(__APPLE__)
-// 1hc substitution of src/apple-define.h
+// 1hc substitution of /home/spito/coding/testing/src/apple-define.h
 #ifndef CUT_APPLE_DEFINE_H
 #define CUT_APPLE_DEFINE_H
 
 #if defined(__GNUC__) || defined(__clang)
 # define CUT_NORETURN __attribute__((noreturn))
 # define CUT_CONSTRUCTOR(name) __attribute__((constructor)) static void name()
+# define CUT_UNUSED(name) __attribute__((unused)) name
 #else
 # error "unsupported compiler"
 #endif
 
 #endif // CUT_APPLE_DEFINE_H
 # elif defined(_WIN32)
-// 1hc substitution of src/windows-define.h
+// 1hc substitution of /home/spito/coding/testing/src/windows-define.h
 #ifndef CUT_WINDOWS_DEFINE_H
 #define CUT_WINDOWS_DEFINE_H
 
@@ -217,7 +215,7 @@ enum cut_ReturnCodes {
     cut_FATAL_EXIT = 255
 };
 
-// 1hc substitution of src/globals.h
+// 1hc substitution of /home/spito/coding/testing/src/globals.h
 #ifndef CUT_GLOBALS_H
 #define CUT_GLOBALS_H
 
@@ -244,7 +242,7 @@ CUT_PRIVATE char cut_localMessage[CUT_MAX_LOCAL_MESSAGE_LENGTH];
 CUT_PRIVATE char *cut_localMessageCursor = NULL;
 
 #endif // CUT_GLOBALS_H
-// 1hc substitution of src/fragments.h
+// 1hc substitution of /home/spito/coding/testing/src/fragments.h
 #ifndef CUT_FRAGMENTS_H
 #define CUT_FRAGMENTS_H
 
@@ -474,7 +472,7 @@ CUT_PRIVATE size_t cut_FragmentReceiveProcessed(cut_FragmentReceiveStatus *statu
 }
 
 #endif
-// 1hc substitution of src/declarations.h
+// 1hc substitution of /home/spito/coding/testing/src/declarations.h
 #ifndef CUT_DECLARATIONS_H
 #define CUT_DECLARATIONS_H
 
@@ -497,7 +495,7 @@ void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
 #  ifdef __cplusplus
-CUT_PRIVATE int cut_StopException(const char *type, const char *text);
+CUT_PRIVATE void cut_StopException(const char *type, const char *text);
 #  endif
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest);
 CUT_PRIVATE void cut_Timeouted();
@@ -530,7 +528,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 int cut_File(FILE *file, const char *content);
 
 #endif // CUT_DECLARATIONS_H
-// 1hc substitution of src/messages.h
+// 1hc substitution of /home/spito/coding/testing/src/messages.h
 #ifndef CUT_MESSAGES_H
 #define CUT_MESSAGES_H
 
@@ -662,7 +660,7 @@ void cut_Check(const char *text, const char *file, size_t line) {
     cut_FragmentClean(&message);
 }
 
-CUT_PRIVATE int cut_StopException(const char *type, const char *text) {
+CUT_PRIVATE void cut_StopException(const char *type, const char *text) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_EXCEPTION);
     cut_FragmentAddString(&message, type) || cut_FatalExit("cannot insert exception:fragment:type");
@@ -868,7 +866,7 @@ CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result,
 }
 
 #endif // CUT_MESSAGES_H
-// 1hc substitution of src/execution.h
+// 1hc substitution of /home/spito/coding/testing/src/execution.h
 #ifndef CUT_EXECUTION_H
 #define CUT_EXECUTION_H
 
@@ -1150,7 +1148,7 @@ cleanup:
 
 
 #  if defined(__unix)
-// 1hc substitution of src/unix.h
+// 1hc substitution of /home/spito/coding/testing/src/unix.h
 #ifndef CUT_UNIX_H
 #define CUT_UNIX_H
 
@@ -1285,7 +1283,7 @@ leave:
 }
 #endif
 #  elif defined(__APPLE__)
-// 1hc substitution of src/apple.h
+// 1hc substitution of /home/spito/coding/testing/src/apple.h
 #ifndef CUT_APPLE_H
 #define CUT_APPLE_H
 
@@ -1420,7 +1418,7 @@ leave:
 
 #endif // CUT_APPLE_H
 #  elif defined(_WIN32)
-// 1hc substitution of src/windows.h
+// 1hc substitution of /home/spito/coding/testing/src/windows.h
 #ifndef CUT_WINDOWS_H
 #define CUT_WINDOWS_H
 
@@ -1786,8 +1784,6 @@ int main(int argc, char **argv) {
 }
 
 #  undef CUT_PRIVATE
-
-# pragma warning(pop)
 
 # endif // CUT_MAIN
 
