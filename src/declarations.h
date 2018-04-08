@@ -20,7 +20,7 @@ void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
 #  ifdef __cplusplus
-CUT_PRIVATE int cut_StopException(const char *type, const char *text);
+CUT_PRIVATE void cut_StopException(const char *type, const char *text);
 #  endif
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest);
 CUT_PRIVATE void cut_Timeouted();

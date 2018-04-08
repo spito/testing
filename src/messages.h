@@ -129,7 +129,7 @@ void cut_Check(const char *text, const char *file, size_t line) {
     cut_FragmentClean(&message);
 }
 
-CUT_PRIVATE int cut_StopException(const char *type, const char *text) {
+CUT_PRIVATE void cut_StopException(const char *type, const char *text) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_EXCEPTION);
     cut_FragmentAddString(&message, type) || cut_FatalExit("cannot insert exception:fragment:type");
