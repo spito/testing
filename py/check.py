@@ -26,7 +26,6 @@ class TestRunner(object):
                 ],
                 stdout=subprocess.PIPE)
             output, err = p.communicate()
-            output = str(output)
             print(self._status(p.returncode))
 
             if bootstrap:
@@ -50,12 +49,12 @@ class TestRunner(object):
         return os.path.join(self.outputDir, '{}.out'.format(self.test))
 
     def _create(self, output):
-        with open(self._outName(), 'w') as f:
+        with open(self._outName(), 'wb') as f:
             f.write(output)
         return not self.statusUnknown
 
     def _compare(self, output):
-        with open(self._outName(), 'r') as f:
+        with open(self._outName(), 'rb') as f:
             return f.read(len(output) + 1) == output and not self.statusUnknown
 
 
