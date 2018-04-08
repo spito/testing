@@ -16,9 +16,6 @@
 
 #else
 
-# pragma GCC system_header
-# pragma warning(push, 0)
-
 # define CUT_PRIVATE static
 
 # if !defined(CUT_TIMEOUT)
@@ -374,8 +371,6 @@ int main(int argc, char **argv) {
 }
 
 #  undef CUT_PRIVATE
-
-# pragma warning(pop)
 
 # endif // CUT_MAIN
 
