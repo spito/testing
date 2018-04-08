@@ -1,1 +1,10 @@
-b'[  1] debugSuccess...........................................................\x1b[1;32mOK\x1b[0m\n    debug messages:\n      Line: 4 (debug-pass.c:4)\n\n\nSummary:\n  tests:       1\n  succeeded:   1\n  skipped:     0\n  failed:      0\n'
+[  1] debugSuccess...........................................................[1;32mOK[0m
+    debug messages:
+      Line: 4 (debug-pass.c:4)
+
+
+Summary:
+  tests:       1
+  succeeded:   1
+  skipped:     0
+  failed:      0

@@ -1,1 +1,11 @@
-b"[  1] debugFail............................................................\x1b[1;31mFAIL\x1b[0m\n    assert '0' (debug-fail.c:5)\n    debug messages:\n      Line: 4 (debug-fail.c:4)\n\n\nSummary:\n  tests:       1\n  succeeded:   0\n  skipped:     0\n  failed:      1\n"
+[  1] debugFail............................................................[1;31mFAIL[0m
+    assert '0' (debug-fail.c:5)
+    debug messages:
+      Line: 4 (debug-fail.c:4)
+
+
+Summary:
+  tests:       1
+  succeeded:   0
+  skipped:     0
+  failed:      1

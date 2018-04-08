@@ -1,1 +1,9 @@
-b'[  1] throwFail............................................................\x1b[1;31mFAIL\x1b[0m\n    exception St13runtime_error: expected to fail\n\n\nSummary:\n  tests:       1\n  succeeded:   0\n  skipped:     0\n  failed:      1\n'
+[  1] throwFail............................................................[1;31mFAIL[0m
+    exception St13runtime_error: expected to fail
+
+
+Summary:
+  tests:       1
+  succeeded:   0
+  skipped:     0
+  failed:      1
