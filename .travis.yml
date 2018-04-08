@@ -5,5 +5,7 @@ compiler:
 os:
  - linux
  - osx
+install:
+ - if [ $TRAVIS_OS_NAME = osx ]; then brew install python3; fi
 script:
  - mkdir build && cd build && cmake .. && make check
