@@ -1,7 +1,10 @@
 
 include_directories(AFTER SYSTEM "${CMAKE_SOURCE_DIR}/1header")
 
-add_definitions(-DCUT -Wall -Wextra -pedantic -ggdb3)
+if(MSVC)
+else()
+    add_definitions(-DCUT -std=c99 -Wall -Wextra -pedantic -ggdb3)
+endif()
 
 add_library(main-cpp main.cpp)
 add_dependencies(main-cpp compile1header)
