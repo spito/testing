@@ -5,6 +5,7 @@
 # include <sys/wait.h>
 # include <sys/types.h>
 # include <signal.h>
+# include <errno.h>
 
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
