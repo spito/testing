@@ -557,8 +557,9 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
     message->serializedLength = 0;
     ssize_t r = 0;
     ssize_t toRead = 0;
+    size_t processed = 0;
     while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
-        size_t processed = cut_FragmentReceiveProcessed(&status);
+        processed = cut_FragmentReceiveProcessed(&status);
 
         if (message->serializedLength < processed + toRead) {
             message->serializedLength = processed + toRead;
@@ -567,6 +568,10 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
                 cut_FatalExit("cannot allocate memory for reading a message");
         }
         r = cut_Read(cut_pipeRead, message->serialized + processed, toRead);
+    }
+    processed = cut_FragmentReceiveProcessed(&status);
+    if (processed < message->serializedLength) {
+        memset(message->serialized, 0, message->serializedLength);
     }
     return toRead != -1;
 }
@@ -727,7 +732,7 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
     do {
         repeat = 0;
         struct cut_Fragment message;
-        cut_FragmentInit(&message, 0);
+        cut_FragmentInit(&message, cut_NO_TYPE);
         cut_ReadLocalMessage(&message) || cut_FatalExit("cannot read message");
         cut_FragmentDeserialize(&message) || cut_FatalExit("cannot deserialize message");
 
