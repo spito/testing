@@ -29,6 +29,14 @@
 #  define CUT_NO_FORK 1
 # endif
 
+# if !defined(CUT_NO_COLOR)
+#  define CUT_NO_COLOR 0
+# else
+#  undef CUT_NO_FORK
+#  define CUT_NO_COLOR 1
+# endif
+
+
 # if defined(__unix)
 // 1hc substitution of /home/spito/coding/testing/src/unix-define.h
 #ifndef CUT_UNIX_DEFINE_H
@@ -63,18 +71,25 @@
 #define CUT_WINDOWS_DEFINE_H
 
 #define _WIN32_WINNT 0x0500
+#if defined(CUT_NO_COLOR)
+# undef CUT_NO_COLOR
+#endif
+#define CUT_NO_COLOR 1
 
 #if defined(__GNUC__) || defined(__clang)
 # define CUT_NORETURN __attribute__((noreturn))
 # define CUT_CONSTRUCTOR(name) __attribute__((constructor)) static void name()
 # define CUT_UNUSED(name) __attribute__((unused)) name
 #elif defined(_MSC_VER)
+
 # define CUT_NORETURN __declspec(noreturn)
 # pragma section(".CRT$XCU",read)
-# define CUT_CONSTRUCTOR(name)                                                  \
-    static void __cdecl name( void );                                           \
-    __declspec(allocate(".CRT$XCU")) void (__cdecl * name ## _)(void) = name;   \
-    static void __cdecl name( void )
+# define CUT_CONSTRUCTOR(name)                                          \
+    static void name( void );                                           \
+    __declspec(allocate(".CRT$XCU")) void (* name ## _)(void) = name;   \
+    static void name( void )
+
+
 # define CUT_UNUSED(name) name
 #else
 # error "unsupported compiler"
@@ -324,7 +339,7 @@ CUT_PRIVATE void *cut_FragmentReserve(struct cut_Fragment *fragments, size_t len
         free(slice);
         return NULL;
     }
-    slice->length = length;
+    slice->length = (uint16_t)length;
     slice->next = NULL;
     if (fragments->lastSlice)
         fragments->lastSlice->next = slice;
@@ -447,7 +462,7 @@ CUT_PRIVATE int cut_FragmentDeserialize(struct cut_Fragment *fragments) {
     return 1;
 }
 
-CUT_PRIVATE ssize_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *status, void *data, ssize_t length) {
+CUT_PRIVATE int64_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *status, void *data, int64_t length) {
     if (!status)
         return 0;
     if (!data) {
@@ -461,7 +476,7 @@ CUT_PRIVATE ssize_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *statu
             return 0;
         status->structured.length = ((struct cut_FragmentHeader*)data)->length;
     }
-    status->structured.processed += length;
+    status->structured.processed += (uint32_t)length;
     return status->structured.length - status->structured.processed;
 }
 
@@ -519,8 +534,8 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv);
 CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitResult *result);
 
 // platform specific functions
-CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes);
-CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes);
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes);
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes);
 CUT_PRIVATE void cut_RedirectIO();
 CUT_PRIVATE void cut_ResumeIO();
 CUT_PRIVATE int cut_PreRun();
@@ -540,10 +555,10 @@ CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
     size_t remaining = message->serializedLength;
     size_t position = 0;
 
-    ssize_t r;
+    int64_t r;
     while (remaining && (r = cut_Write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
-        position += r;
-        remaining -= r;
+        position += (size_t)r;
+        remaining -= (size_t)r;
     }
     return r != -1;
 }
@@ -553,19 +568,19 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
 
     message->serialized = NULL;
     message->serializedLength = 0;
-    ssize_t r = 0;
-    ssize_t toRead = 0;
+    int64_t r = 0;
+    int64_t toRead = 0;
     size_t processed = 0;
     while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
         processed = cut_FragmentReceiveProcessed(&status);
 
         if (message->serializedLength < processed + toRead) {
-            message->serializedLength = processed + toRead;
+            message->serializedLength = (uint32_t)(processed + toRead);
             message->serialized = (char *)realloc(message->serialized, message->serializedLength);
             if (!message->serialized)
                 cut_FatalExit("cannot allocate memory for reading a message");
         }
-        r = cut_Read(cut_pipeRead, message->serialized + processed, toRead);
+        r = cut_Read(cut_pipeRead, message->serialized + processed, (size_t)toRead);
     }
     processed = cut_FragmentReceiveProcessed(&status);
     if (processed < message->serializedLength) {
@@ -707,18 +722,18 @@ CUT_PRIVATE int cut_ReadLocalMessage(struct cut_Fragment *message) {
     message->serialized = NULL;
     message->serializedLength = 0;
 
-    ssize_t r = 0;
-    ssize_t toRead = 0;
+    int64_t r = 0;
+    int64_t toRead = 0;
     while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
         size_t processed = cut_FragmentReceiveProcessed(&status);
 
         if (message->serializedLength < processed + toRead) {
-            message->serializedLength = processed + toRead;
+            message->serializedLength = (uint32_t)(processed + toRead);
             message->serialized = (char *)realloc(message->serialized, message->serializedLength);
             if (!message->serialized)
                 cut_FatalExit("cannot allocate memory for reading a message");
         }
-        memcpy(message->serialized + processed, cut_localMessageCursor, toRead);
+        memcpy(message->serialized + processed, cut_localMessageCursor, (size_t)toRead);
         cut_localMessageCursor += toRead;
         r = toRead;
     }
@@ -928,11 +943,11 @@ CUT_PRIVATE int cut_SkipUnit(int testId) {
 }
 
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *length) {
-    static const char *ok = "\e[1;32mOK\e[0m";
+    static const char *ok = "\x1B[1;32mOK\x1B[0m";
     static const char *basicOk = "OK";
-    static const char *fail = "\e[1;31mFAIL\e[0m";
+    static const char *fail = "\x1B[1;31mFAIL\x1B[0m";
     static const char *basicFail = "FAIL";
-    static const char *internalFail = "\e[1;33mINTERNAL ERROR\e[0m";
+    static const char *internalFail = "\x1B[1;33mINTERNAL ERROR\x1B[0m";
     static const char *basicInternalFail = "INTERNAL ERROR";
 
     if (result->returnCode == cut_FATAL_EXIT) {
@@ -953,7 +968,7 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path) {
     char *cursor = shortenedPath;
     const char *dots = "...";
     const size_t dotsLength = strlen(dots);
-    size_t pathLength = strlen(path);
+    int pathLength = strlen(path);
     if (cut_arguments.shortPath < 0 || pathLength <= cut_arguments.shortPath)
         return path;
     if (cut_arguments.shortPath > MAX_PATH)
@@ -968,7 +983,7 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path) {
             break;
         }
     }
-    size_t consumed = (end - name) + dotsLength;
+    int consumed = (end - name) + dotsLength;
     if (consumed < cut_arguments.shortPath) {
         size_t remaining = cut_arguments.shortPath - consumed;
         size_t firstPart = remaining - remaining / 2;
@@ -1179,11 +1194,11 @@ CUT_PRIVATE void cut_ResumeIO() {
     cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes) {
     return read(fd, destination, bytes);
 }
 
-CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes) {
     return write(fd, source, bytes);
 }
 
@@ -1248,7 +1263,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 
 CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        ssize_t rv = read(fd, buffer, length);
+        int64_t rv = read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;
@@ -1290,8 +1305,8 @@ leave:
 # include <unistd.h>
 # include <sys/wait.h>
 # include <sys/types.h>
-# include <sys/prctl.h>
 # include <signal.h>
+# include <errno.h>
 
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
@@ -1314,11 +1329,11 @@ CUT_PRIVATE void cut_ResumeIO() {
     cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes) {
     return read(fd, destination, bytes);
 }
 
-CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes) {
     return write(fd, source, bytes);
 }
 
@@ -1382,7 +1397,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 
 CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        ssize_t rv = read(fd, buffer, length);
+        int64_t rv = read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;
@@ -1424,6 +1439,7 @@ leave:
 
 # include <Windows.h>
 # include <io.h>
+# include <fcntl.h>
 
 CUT_PRIVATE HANDLE cut_jobGroup;
 
@@ -1449,15 +1465,15 @@ CUT_PRIVATE void cut_ResumeIO() {
     cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes) {
     return _read(fd, destination, bytes);
 }
 
-CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes) {
     return _write(fd, source, bytes);
 }
 
-CUT_PRIVATE void cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(int timerEvent)) {
+CUT_PRIVATE void NTAPI cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(BOOLEAN timerEvent)) {
     cut_Timeouted();
     ExitProcess(cut_NORMAL_EXIT);
 }
@@ -1465,12 +1481,12 @@ CUT_PRIVATE void cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(int timer
 CUT_PRIVATE int cut_PreRun() {
     if (!cut_arguments.noFork && cut_arguments.testId < 0) {
         // create a group of processes to be able to kill unit when parent dies
-        jobGroup = CreateJobObject(NULL, NULL);
-        if (!jobGroup)
+		cut_jobGroup = CreateJobObject(NULL, NULL);
+        if (!cut_jobGroup)
             cut_FatalExit("cannot create jobGroup object");
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {0};
         jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        SetInformationJobObject(jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||cut_FatalExit("cannot SetInformationJobObject");
+        SetInformationJobObject(cut_jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||cut_FatalExit("cannot SetInformationJobObject");
     }
     if (cut_arguments.testId < 0)
         return 0;
@@ -1521,9 +1537,9 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     startInfo.hStdOutput = childOutWrite;
 
     const char *fmtString = "\"%s\" --test %i --subtest %i --timeout %i";
-    int length = snprintf(NULL, 0, fmtString, cut_arguments.selfName, testId.name, subtest,
+    int length = snprintf(NULL, 0, fmtString, cut_arguments.selfName, testId, subtest,
                           cut_arguments.timeout);
-    char *command = malloc(length + 1);
+    char *command = (char *)malloc(length + 1);
     sprintf(command, fmtString, cut_arguments.selfName, testId, subtest, cut_arguments.timeout);
             
     CreateProcessA(cut_arguments.selfName,
@@ -1540,8 +1556,9 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 
     AssignProcessToJobObject(cut_jobGroup, procInfo.hProcess) || cut_FatalExit("cannot assign process to job object");
     ResumeThread(procInfo.hThread) == 1 || cut_FatalExit("cannot resume thread");
+	CloseHandle(childOutWrite) || cut_FatalExit("cannot close handle");
 
-    cut_pipeRead = _open_osfhandle(childOutRead, 0);
+    cut_pipeRead = _open_osfhandle((intptr_t)childOutRead, 0);
     cut_PipeReader(result);
 
     WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || cut_FatalExit("cannot wait for single object");
@@ -1555,16 +1572,15 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     result->failed |= result->returnCode;
 
     _close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
-    CloseHandle(childOutWrite) || cut_FatalExit("cannot close handle");
 }
 
 CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        ssize_t rv = _read(fd, buffer, length);
+        int64_t rv = _read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;
-        length -= rv;
+        length -= (size_t)rv;
     }
     return 0;
 }
@@ -1651,7 +1667,7 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     cut_arguments.help = 0;
     cut_arguments.timeout = CUT_TIMEOUT;
     cut_arguments.noFork = CUT_NO_FORK;
-    cut_arguments.noColor = 0;
+    cut_arguments.noColor = CUT_NO_COLOR;
     cut_arguments.output = NULL;
     cut_arguments.matchSize = 0;
     cut_arguments.match = NULL;
