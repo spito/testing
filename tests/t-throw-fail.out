@@ -1,5 +1,5 @@
-    exception St13runtime_error: expected to fail
 [  1] throwFail............................................................FAIL
+    exception St13runtime_error: expected to fail
 
 
 Summary:
