@@ -79,7 +79,7 @@ CUT_PRIVATE void *cut_FragmentReserve(struct cut_Fragment *fragments, size_t len
         free(slice);
         return NULL;
     }
-    slice->length = length;
+    slice->length = (uint16_t)length;
     slice->next = NULL;
     if (fragments->lastSlice)
         fragments->lastSlice->next = slice;
@@ -202,7 +202,7 @@ CUT_PRIVATE int cut_FragmentDeserialize(struct cut_Fragment *fragments) {
     return 1;
 }
 
-CUT_PRIVATE ssize_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *status, void *data, ssize_t length) {
+CUT_PRIVATE int64_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *status, void *data, int64_t length) {
     if (!status)
         return 0;
     if (!data) {
@@ -216,7 +216,7 @@ CUT_PRIVATE ssize_t cut_FragmentReceiveContinue(cut_FragmentReceiveStatus *statu
             return 0;
         status->structured.length = ((struct cut_FragmentHeader*)data)->length;
     }
-    status->structured.processed += length;
+    status->structured.processed += (uint32_t)length;
     return status->structured.length - status->structured.processed;
 }
 

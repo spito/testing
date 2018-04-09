@@ -29,6 +29,14 @@
 #  define CUT_NO_FORK 1
 # endif
 
+# if !defined(CUT_NO_COLOR)
+#  define CUT_NO_COLOR 0
+# else
+#  undef CUT_NO_FORK
+#  define CUT_NO_COLOR 1
+# endif
+
+
 # if defined(__unix)
 #  include "unix-define.h"
 # elif defined(__APPLE__)
@@ -238,7 +246,7 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     cut_arguments.help = 0;
     cut_arguments.timeout = CUT_TIMEOUT;
     cut_arguments.noFork = CUT_NO_FORK;
-    cut_arguments.noColor = 0;
+    cut_arguments.noColor = CUT_NO_COLOR;
     cut_arguments.output = NULL;
     cut_arguments.matchSize = 0;
     cut_arguments.match = NULL;

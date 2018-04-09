@@ -2,6 +2,7 @@
 include_directories(AFTER SYSTEM "${CMAKE_SOURCE_DIR}/1header")
 
 if(MSVC)
+    add_definitions(-DCUT -D_CRT_SECURE_NO_WARNINGS)
 else()
     add_definitions(-DCUT -Wall -Wextra -pedantic -ggdb3)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")

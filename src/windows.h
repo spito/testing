@@ -3,6 +3,7 @@
 
 # include <Windows.h>
 # include <io.h>
+# include <fcntl.h>
 
 CUT_PRIVATE HANDLE cut_jobGroup;
 
@@ -28,15 +29,15 @@ CUT_PRIVATE void cut_ResumeIO() {
     cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes) {
     return _read(fd, destination, bytes);
 }
 
-CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes) {
     return _write(fd, source, bytes);
 }
 
-CUT_PRIVATE void cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(int timerEvent)) {
+CUT_PRIVATE void NTAPI cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(BOOLEAN timerEvent)) {
     cut_Timeouted();
     ExitProcess(cut_NORMAL_EXIT);
 }
@@ -44,12 +45,12 @@ CUT_PRIVATE void cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(int timer
 CUT_PRIVATE int cut_PreRun() {
     if (!cut_arguments.noFork && cut_arguments.testId < 0) {
         // create a group of processes to be able to kill unit when parent dies
-        jobGroup = CreateJobObject(NULL, NULL);
-        if (!jobGroup)
+		cut_jobGroup = CreateJobObject(NULL, NULL);
+        if (!cut_jobGroup)
             cut_FatalExit("cannot create jobGroup object");
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {0};
         jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        SetInformationJobObject(jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||cut_FatalExit("cannot SetInformationJobObject");
+        SetInformationJobObject(cut_jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||cut_FatalExit("cannot SetInformationJobObject");
     }
     if (cut_arguments.testId < 0)
         return 0;
@@ -100,9 +101,9 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     startInfo.hStdOutput = childOutWrite;
 
     const char *fmtString = "\"%s\" --test %i --subtest %i --timeout %i";
-    int length = snprintf(NULL, 0, fmtString, cut_arguments.selfName, testId.name, subtest,
+    int length = snprintf(NULL, 0, fmtString, cut_arguments.selfName, testId, subtest,
                           cut_arguments.timeout);
-    char *command = malloc(length + 1);
+    char *command = (char *)malloc(length + 1);
     sprintf(command, fmtString, cut_arguments.selfName, testId, subtest, cut_arguments.timeout);
             
     CreateProcessA(cut_arguments.selfName,
@@ -119,8 +120,9 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 
     AssignProcessToJobObject(cut_jobGroup, procInfo.hProcess) || cut_FatalExit("cannot assign process to job object");
     ResumeThread(procInfo.hThread) == 1 || cut_FatalExit("cannot resume thread");
+	CloseHandle(childOutWrite) || cut_FatalExit("cannot close handle");
 
-    cut_pipeRead = _open_osfhandle(childOutRead, 0);
+    cut_pipeRead = _open_osfhandle((intptr_t)childOutRead, 0);
     cut_PipeReader(result);
 
     WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || cut_FatalExit("cannot wait for single object");
@@ -134,16 +136,15 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     result->failed |= result->returnCode;
 
     _close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
-    CloseHandle(childOutWrite) || cut_FatalExit("cannot close handle");
 }
 
 CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        ssize_t rv = _read(fd, buffer, length);
+        int64_t rv = _read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;
-        length -= rv;
+        length -= (size_t)rv;
     }
     return 0;
 }

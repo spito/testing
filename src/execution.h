@@ -59,11 +59,11 @@ CUT_PRIVATE int cut_SkipUnit(int testId) {
 }
 
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *length) {
-    static const char *ok = "\e[1;32mOK\e[0m";
+    static const char *ok = "\x1B[1;32mOK\x1B[0m";
     static const char *basicOk = "OK";
-    static const char *fail = "\e[1;31mFAIL\e[0m";
+    static const char *fail = "\x1B[1;31mFAIL\x1B[0m";
     static const char *basicFail = "FAIL";
-    static const char *internalFail = "\e[1;33mINTERNAL ERROR\e[0m";
+    static const char *internalFail = "\x1B[1;33mINTERNAL ERROR\x1B[0m";
     static const char *basicInternalFail = "INTERNAL ERROR";
 
     if (result->returnCode == cut_FATAL_EXIT) {
@@ -84,7 +84,7 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path) {
     char *cursor = shortenedPath;
     const char *dots = "...";
     const size_t dotsLength = strlen(dots);
-    size_t pathLength = strlen(path);
+    int pathLength = strlen(path);
     if (cut_arguments.shortPath < 0 || pathLength <= cut_arguments.shortPath)
         return path;
     if (cut_arguments.shortPath > MAX_PATH)
@@ -99,7 +99,7 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path) {
             break;
         }
     }
-    size_t consumed = (end - name) + dotsLength;
+    int consumed = (end - name) + dotsLength;
     if (consumed < cut_arguments.shortPath) {
         size_t remaining = cut_arguments.shortPath - consumed;
         size_t firstPart = remaining - remaining / 2;

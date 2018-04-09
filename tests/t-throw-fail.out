@@ -1,5 +1,5 @@
-[  1] throwFail............................................................[1;31mFAIL[0m
     exception St13runtime_error: expected to fail
+[  1] throwFail............................................................FAIL
 
 
 Summary:

@@ -44,8 +44,8 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv);
 CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitResult *result);
 
 // platform specific functions
-CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes);
-CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes);
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes);
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes);
 CUT_PRIVATE void cut_RedirectIO();
 CUT_PRIVATE void cut_ResumeIO();
 CUT_PRIVATE int cut_PreRun();

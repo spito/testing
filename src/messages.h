@@ -9,10 +9,10 @@ CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
     size_t remaining = message->serializedLength;
     size_t position = 0;
 
-    ssize_t r;
+    int64_t r;
     while (remaining && (r = cut_Write(cut_pipeWrite, message->serialized + position, remaining)) > 0) {
-        position += r;
-        remaining -= r;
+        position += (size_t)r;
+        remaining -= (size_t)r;
     }
     return r != -1;
 }
@@ -22,19 +22,19 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
 
     message->serialized = NULL;
     message->serializedLength = 0;
-    ssize_t r = 0;
-    ssize_t toRead = 0;
+    int64_t r = 0;
+    int64_t toRead = 0;
     size_t processed = 0;
     while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
         processed = cut_FragmentReceiveProcessed(&status);
 
         if (message->serializedLength < processed + toRead) {
-            message->serializedLength = processed + toRead;
+            message->serializedLength = (uint32_t)(processed + toRead);
             message->serialized = (char *)realloc(message->serialized, message->serializedLength);
             if (!message->serialized)
                 cut_FatalExit("cannot allocate memory for reading a message");
         }
-        r = cut_Read(cut_pipeRead, message->serialized + processed, toRead);
+        r = cut_Read(cut_pipeRead, message->serialized + processed, (size_t)toRead);
     }
     processed = cut_FragmentReceiveProcessed(&status);
     if (processed < message->serializedLength) {
@@ -176,18 +176,18 @@ CUT_PRIVATE int cut_ReadLocalMessage(struct cut_Fragment *message) {
     message->serialized = NULL;
     message->serializedLength = 0;
 
-    ssize_t r = 0;
-    ssize_t toRead = 0;
+    int64_t r = 0;
+    int64_t toRead = 0;
     while ((toRead = cut_FragmentReceiveContinue(&status, message->serialized, r)) > 0) {
         size_t processed = cut_FragmentReceiveProcessed(&status);
 
         if (message->serializedLength < processed + toRead) {
-            message->serializedLength = processed + toRead;
+            message->serializedLength = (uint32_t)(processed + toRead);
             message->serialized = (char *)realloc(message->serialized, message->serializedLength);
             if (!message->serialized)
                 cut_FatalExit("cannot allocate memory for reading a message");
         }
-        memcpy(message->serialized + processed, cut_localMessageCursor, toRead);
+        memcpy(message->serialized + processed, cut_localMessageCursor, (size_t)toRead);
         cut_localMessageCursor += toRead;
         r = toRead;
     }

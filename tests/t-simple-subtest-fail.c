@@ -1,4 +1,5 @@
 #include <cut.h>
+#include <stdlib.h>
 
 TEST(withSubtest) {
     int i = 1;

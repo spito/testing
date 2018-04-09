@@ -28,11 +28,11 @@ CUT_PRIVATE void cut_ResumeIO() {
     cut_outputsRedirected = 0;
 }
 
-CUT_PRIVATE ssize_t cut_Read(int fd, char *destination, size_t bytes) {
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes) {
     return read(fd, destination, bytes);
 }
 
-CUT_PRIVATE ssize_t cut_Write(int fd, const char *source, size_t bytes) {
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes) {
     return write(fd, source, bytes);
 }
 
@@ -96,7 +96,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 
 CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
     while (length) {
-        ssize_t rv = read(fd, buffer, length);
+        int64_t rv = read(fd, buffer, length);
         if (rv < 0)
             return -1;
         buffer += rv;

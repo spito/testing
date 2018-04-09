@@ -6,6 +6,7 @@ Run this program as `py/check.py build/tests tests`
 
 import os
 import sys
+import platform
 import subprocess
 
 TEST_PREFIX = 't-'
@@ -13,6 +14,7 @@ TEST_PREFIX = 't-'
 class TestRunner(object):
     def __init__(self, test, outputDir):
         self.testDir, self.test = test
+        self.testName = self.test[0:-4] if self.test[-4:] == '.exe' else self.test
         self.outputDir = outputDir
         self.statusUnknown = True
 
@@ -21,8 +23,9 @@ class TestRunner(object):
             print('running {}: '.format(self.test), end='')
             p = subprocess.Popen([
                     os.path.join(self.testDir, self.test),
+                    '--no-color',
                     '--short-path',
-                    '{}'.format(len(self.test))
+                    '{}'.format(len(self.testName))
                 ],
                 stdout=subprocess.PIPE)
             output, err = p.communicate()
@@ -37,16 +40,16 @@ class TestRunner(object):
             return False
 
     def _status(self, returnCode):
-        if self.test[-4:] == 'pass':
+        if self.testName[-4:] == 'pass':
             self.statusUnknown = False
             return 'OK' if returnCode == 0 else 'FAILED ({})'.format(returnCode)
-        if self.test[-4:] == 'fail':
+        if self.testName[-4:] == 'fail':
             self.statusUnknown = False
             return 'OK' if returnCode != 0 else 'DID NOT FAILED'
         return 'UNKNOWN'
 
     def _outName(self):
-        return os.path.join(self.outputDir, '{}.out'.format(self.test))
+        return os.path.join(self.outputDir, '{}.out'.format(self.testName))
 
     def _create(self, output):
         with open(self._outName(), 'wb') as f:
@@ -59,7 +62,11 @@ class TestRunner(object):
 
 
 def isexecutable(path):
-    return os.path.isfile(path) and os.access(path, os.X_OK)
+    if not os.path.isfile(path):
+        return False
+    if platform.system() == 'Windows':
+        return path[-4:] == '.exe'
+    return os.access(path, os.X_OK)
 
 
 def tests(path):
@@ -67,6 +74,7 @@ def tests(path):
         (path, file) for file in os.listdir(path)
         if isexecutable(os.path.join(path, file))
     ]
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
