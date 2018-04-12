@@ -13,19 +13,19 @@ TEST_PREFIX = 't-'
 
 class TestRunner(object):
     def __init__(self, test, outputDir):
-        self.testDir, self.test = test
-        self.testName = self.test[0:-4] if self.test[-4:] == '.exe' else self.test
-        self.outputDir = outputDir
-        self.statusUnknown = True
+        self._testDir, self._test = test
+        self._testName = self._test[0:-4] if self._test[-4:] == '.exe' else self._test
+        self._outputDir = outputDir
+        self._statusUnknown = True
 
     def check(self, bootstrap):
         try:
-            print('running {}: '.format(self.test), end='')
+            print('running {}: '.format(self._test), end='')
             p = subprocess.Popen([
-                    os.path.join(self.testDir, self.test),
+                    os.path.join(self._testDir, self._test),
                     '--no-color',
                     '--short-path',
-                    '{}'.format(len(self.testName))
+                    '{}'.format(len(self._testName))
                 ],
                 stdout=subprocess.PIPE)
             output, err = p.communicate()
@@ -40,25 +40,25 @@ class TestRunner(object):
             return False
 
     def _status(self, returnCode):
-        if self.testName[-4:] == 'pass':
-            self.statusUnknown = False
+        if self._testName[-4:] == 'pass':
+            self._statusUnknown = False
             return 'OK' if returnCode == 0 else 'FAILED ({})'.format(returnCode)
-        if self.testName[-4:] == 'fail':
-            self.statusUnknown = False
+        if self._testName[-4:] == 'fail':
+            self._statusUnknown = False
             return 'OK' if returnCode != 0 else 'DID NOT FAILED'
         return 'UNKNOWN'
 
     def _outName(self):
-        return os.path.join(self.outputDir, '{}.out'.format(self.testName))
+        return os.path.join(self._outputDir, '{}.out'.format(self._testName))
 
     def _create(self, output):
         with open(self._outName(), 'wb') as f:
             f.write(output)
-        return not self.statusUnknown
+        return not self._statusUnknown
 
     def _compare(self, output):
         with open(self._outName(), 'rb') as f:
-            return f.read(len(output) + 1) == output and not self.statusUnknown
+            return f.read(len(output) + 1) == output and not self._statusUnknown
 
 
 def isexecutable(path):
@@ -76,7 +76,7 @@ def tests(path):
     ]
 
 
-if __name__ == '__main__':
+def main():
     if len(sys.argv) < 3:
         print('invalid number of arguments')
     bootstrap = True if len(sys.argv) > 3 and sys.argv[3] == '--bootstrap' else False
@@ -95,3 +95,7 @@ if __name__ == '__main__':
     else:
         print('CUT seems to be OK')
     sys.exit(len(problematic))
+
+
+if __name__ == '__main__':
+    main()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Run this program as `py/1hc.py src/core.h 1header/cut.h`
+Run this program as `py/generate.py src/core.h 1header/cut.h`
 """
 
 import os
@@ -22,13 +22,14 @@ class Global(object):
 
 
 class Context(object):
-    def __init__(self, path):
+    def __init__(self, path, comment):
         self._directory = os.path.dirname(path)
         self._name = os.path.basename(path)
+        self._comment = comment
         self._global = Global()
 
     def inherit(self, path):
-        new = Context(os.path.join(self._directory, path))
+        new = Context(os.path.join(self._directory, path), self._comment)
         new._global = self._global
         return new
 
@@ -42,7 +43,8 @@ class Context(object):
 
     def addFile(self, name):
         ctx = self.inherit(name)
-        self.addLine('// 1hc substitution of {}\n'.format(ctx.file()))
+        if self._comment:
+            self.addLine('// 1hc substitution of {}\n'.format(ctx.file()))
         return ctx
 
     def addError(self):
@@ -73,11 +75,15 @@ def processFile(context):
         context.addError()
         print('Failed to open {}'.format(context.file()))
 
-if __name__ == '__main__':
+
+def main():
     if len(sys.argv) < 3:
         print('invalid number of arguments')
         sys.exit(1)
-    context = Context(sys.argv[1])
+
+    comment = False if len(sys.argv) > 3 and sys.argv[3] == '--no-comment' else True
+
+    context = Context(sys.argv[1], comment)
     processFile(context)
 
     output_dir = os.path.dirname(sys.argv[2])
@@ -86,3 +92,7 @@ if __name__ == '__main__':
 
     with open(sys.argv[2], 'w') as f:
         f.write(context.content())
+
+
+if __name__ == '__main__':
+    main()
