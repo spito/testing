@@ -72,7 +72,7 @@
 # define TEST(name)                                                             \
     void cut_instance_ ## name(int *, int);                                     \
     CUT_CONSTRUCTOR(cut_Register ## name) {                                     \
-        cut_Register(cut_instance_ ## name, #name);                             \
+        cut_Register(cut_instance_ ## name, #name, __FILE__, __LINE__);         \
     }                                                                           \
     void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
 
@@ -96,7 +96,7 @@ extern "C" {
 # endif
 
 typedef void(*cut_Instance)(int *, int);
-void cut_Register(cut_Instance instance, const char *name);
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
 int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
@@ -149,6 +149,8 @@ struct cut_UnitResult {
 struct cut_UnitTest {
     cut_Instance instance;
     const char *name;
+    const char *file;
+    size_t line;
 };
 
 struct cut_UnitTestArray {
@@ -218,7 +220,7 @@ CUT_NORETURN int cut_ErrorExit(const char *reason, ...) {
 }
 
 
-void cut_Register(cut_Instance instance, const char *name) {
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line) {
     if (cut_unitTests.size == cut_unitTests.capacity) {
         cut_unitTests.capacity += 16;
         cut_unitTests.tests = (struct cut_UnitTest *)realloc(cut_unitTests.tests,
@@ -228,6 +230,8 @@ void cut_Register(cut_Instance instance, const char *name) {
     }
     cut_unitTests.tests[cut_unitTests.size].instance = instance;
     cut_unitTests.tests[cut_unitTests.size].name = name;
+    cut_unitTests.tests[cut_unitTests.size].file = file;
+    cut_unitTests.tests[cut_unitTests.size].line = line;
     ++cut_unitTests.size;
 }
 

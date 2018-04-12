@@ -188,6 +188,16 @@ CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitRes
     result->signal = 0;
 }
 
+CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs) {
+    struct cut_UnitTest *lhs = (struct cut_UnitTest *)_lhs;
+    struct cut_UnitTest *rhs = (struct cut_UnitTest *)_rhs;
+
+    int result = strcmp(lhs->file, rhs->file);
+    if (!result)
+        result = lhs->line <= rhs->line ? -1 : 1;
+    return result;
+}
+
 
 CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     cut_output = stdout;
@@ -210,6 +220,8 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
 
     if (cut_arguments.help)
         return cut_Help();
+
+    qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
 
     for (int i = 0; i < cut_unitTests.size; ++i) {
         if (cut_SkipUnit(i))

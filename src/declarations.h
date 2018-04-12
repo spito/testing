@@ -8,7 +8,7 @@
 // common functions
 CUT_NORETURN int cut_FatalExit(const char *reason);
 CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
-void cut_Register(cut_Instance instance, const char *name);
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
 CUT_PRIVATE int cut_Help();
 CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message);
 CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message);
@@ -40,6 +40,7 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path);
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result);
 CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info);
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result);
+CUT_PRIVATE int cut_TestComparator(const void *lhs, const void *rhs);
 CUT_PRIVATE int cut_Runner(int argc, char **argv);
 CUT_PRIVATE void cut_RunUnitForkless(int testId, int subtest, struct cut_UnitResult *result);
 
