@@ -35,7 +35,7 @@ CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result,
     const char *type, const char *text);
 CUT_PRIVATE void cut_ParseArguments(int argc, char **argv);
 CUT_PRIVATE int cut_SkipUnit(int testId);
-CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *length);
+CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color);
 CUT_PRIVATE const char *cut_ShortPath(const char *path);
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result);
 CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info);
@@ -52,5 +52,8 @@ CUT_PRIVATE void cut_ResumeIO();
 CUT_PRIVATE int cut_PreRun();
 CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *result);
 int cut_File(FILE *file, const char *content);
+CUT_PRIVATE int cut_IsDebugger();
+CUT_PRIVATE int cut_IsTerminalOutput();
+CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text);
 
 #endif // CUT_DECLARATIONS_H

@@ -2,10 +2,16 @@
 #define CUT_UNIX_H
 
 # include <unistd.h>
+# include <sys/stat.h>
 # include <sys/wait.h>
 # include <sys/types.h>
 # include <sys/prctl.h>
+# include <fcntl.h>
 # include <signal.h>
+
+CUT_PRIVATE int cut_IsTerminalOutput() {
+    return isatty(fileno(stdout));
+}
 
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
@@ -95,39 +101,102 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 }
 
-CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
-    while (length) {
-        int64_t rv = read(fd, buffer, length);
-        if (rv < 0)
-            return -1;
-        buffer += rv;
-        length -= rv;
+CUT_PRIVATE int cut_ReadWholeFile(int fd, char **buffer, size_t *length) {
+    int result = 0;
+    size_t capacity = 16;
+    *length = 0;
+    *buffer = (char *) malloc(capacity);
+    if (!*buffer)
+        return 0;
+
+    long offset = lseek(fd, 0, SEEK_CUR);
+    lseek(fd, 0, SEEK_SET);
+
+    int rv;
+    while ((rv = read(fd, *buffer + *length, capacity - *length - 1)) > 0) {
+        *length += rv;
+        if (*length + 1 == capacity) {
+            capacity *= 2;
+            char *newBuffer = (char *)realloc(*buffer, capacity);
+            if (!newBuffer)
+                break;
+            *buffer = newBuffer;
+        }
     }
-    return 0;
+
+    if (!rv)
+        result = 1;
+    (*buffer)[*length] = '\0';
+cleanup:
+    lseek(fd, offset, SEEK_SET);
+    return result;
 }
 
 int cut_File(FILE *f, const char *content) {
     int result = 0;
     size_t length = strlen(content);
+    size_t fileLength;
     int fd = fileno(f);
     fflush(f);
     char *buf = NULL;
 
-    long offset = lseek(fd, 0, SEEK_CUR);
-    if ((size_t) lseek(fd, 0, SEEK_END) != length)
-        goto leave;
-
-    lseek(fd, 0, SEEK_SET);
-    buf = (char*)malloc(length);
-    if (!buf)
-        cut_FatalExit("cannot allocate memory for file");
-    if (cut_ReadWholeFile(fd, buf, length))
+    if (!cut_ReadWholeFile(fd, &buf, &fileLength))
         cut_FatalExit("cannot read whole file");
 
-    result = memcmp(content, buf, length) == 0;
-leave:
-    lseek(fd, offset, SEEK_SET);
+    result = length == fileLength && memcmp(content, buf, length) == 0;
+cleanup:
     free(buf);
     return result;
+}
+
+CUT_PRIVATE int cut_IsDebugger() {
+    const char *desired = "TracerPid:";
+    const char *found = NULL;
+    int tracerPid;
+    int result = 0;
+    int status = open("/proc/self/status", O_RDONLY);
+    if (status < 0)
+        return 0;
+
+    char *buffer;
+    size_t length;
+    
+    if (!cut_ReadWholeFile(status, &buffer, &length))
+        goto cleanup;
+
+    found = strstr(buffer, desired);
+    if (!found)
+        goto cleanup;
+
+    if (!sscanf(found + strlen(desired), "%i", &tracerPid))
+        goto cleanup;
+
+    if (tracerPid)
+        result = 1;
+cleanup:
+    free(buffer);
+    close(status);
+    return result;
+}
+
+CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
+    const char *prefix;
+    const char *suffix = "\x1B[0m";
+    switch (color) {
+    case cut_YELLOW_COLOR:
+        prefix = "\x1B[1;33m";
+        break;
+    case cut_RED_COLOR:
+        prefix = "\x1B[1;31m";
+        break;
+    case cut_GREEN_COLOR:
+        prefix = "\x1B[1;32m";
+        break;
+    default:
+        prefix = "";
+        suffix = "";
+        break;
+    }
+    return fprintf(cut_output, "%s%s%s", prefix, text, suffix);
 }
 #endif

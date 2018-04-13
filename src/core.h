@@ -23,16 +23,16 @@
 # endif
 
 # if !defined(CUT_NO_FORK)
-#  define CUT_NO_FORK 0
+#  define CUT_NO_FORK cut_IsDebugger()
 # else
 #  undef CUT_NO_FORK
 #  define CUT_NO_FORK 1
 # endif
 
 # if !defined(CUT_NO_COLOR)
-#  define CUT_NO_COLOR 0
+#  define CUT_NO_COLOR !cut_IsTerminalOutput()
 # else
-#  undef CUT_NO_FORK
+#  undef CUT_NO_COLOR
 #  define CUT_NO_COLOR 1
 # endif
 
@@ -179,6 +179,13 @@ enum cut_ReturnCodes {
     cut_FATAL_EXIT = 255
 };
 
+enum cut_Colors {
+    cut_NO_COLOR = 0,
+    cut_YELLOW_COLOR,
+    cut_GREEN_COLOR,
+    cut_RED_COLOR
+};
+
 #  include "globals.h"
 #  include "fragments.h"
 #  include "declarations.h"
@@ -288,10 +295,13 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
         }
         if (!strcmp(output, argv[i])) {
             ++i;
-            if (i < argc)
+            if (i < argc) {
                 cut_arguments.output = argv[i];
-            else
+                cut_arguments.noColor = 1;
+            }
+            else {
                 cut_ErrorExit("option %s requires string argument", output);
+            }
             continue;
         }
         if (!strcmp(exactTest, argv[i])) {

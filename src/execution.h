@@ -15,7 +15,7 @@
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (setjmp(cut_executionPoint))
-        goto leave;
+        goto cleanup;
     try {
         int counter = 0;
         cut_unitTests.tests[testId].instance(&counter, subtest);
@@ -26,7 +26,7 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     } catch (...) {
         cut_StopException("unknown type", "(empty message)");
     }
-leave:
+cleanup:
     cut_ResumeIO();
 }
 
@@ -35,11 +35,11 @@ extern "C" {
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (setjmp(cut_executionPoint))
-        goto leave;
+        goto cleanup;
     int counter = 0;
     cut_unitTests.tests[testId].instance(&counter, subtest);
     cut_SendOK(counter);
-leave:
+cleanup:
     cut_ResumeIO();
 }
 # endif
@@ -58,24 +58,21 @@ CUT_PRIVATE int cut_SkipUnit(int testId) {
     return 1;
 }
 
-CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, int *length) {
-    static const char *ok = "\x1B[1;32mOK\x1B[0m";
-    static const char *basicOk = "OK";
-    static const char *fail = "\x1B[1;31mFAIL\x1B[0m";
-    static const char *basicFail = "FAIL";
-    static const char *internalFail = "\x1B[1;33mINTERNAL ERROR\x1B[0m";
-    static const char *basicInternalFail = "INTERNAL ERROR";
+CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color) {
+    static const char *ok = "OK";
+    static const char *fail = "FAIL";
+    static const char *internalFail = "INTERNAL ERROR";
 
     if (result->returnCode == cut_FATAL_EXIT) {
-        *length = strlen(basicInternalFail);
-        return cut_arguments.noColor ? basicInternalFail : internalFail;
+        *color = cut_YELLOW_COLOR;
+        return internalFail;
     }
     if (result->failed) {
-        *length = strlen(basicFail);
-        return cut_arguments.noColor ? basicFail : fail;
+        *color = cut_RED_COLOR;
+        return fail;
     }
-    *length = strlen(basicOk);
-    return cut_arguments.noColor ? basicOk : ok;
+    *color = cut_GREEN_COLOR;
+    return ok;
 }
 
 CUT_PRIVATE const char *cut_ShortPath(const char *path) {
@@ -117,9 +114,9 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path) {
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result) {
     static const char *shortIndent = "    ";
     static const char *longIndent = "        ";
-    int statusLength;
-    const char *status = cut_GetStatus(result, &statusLength);
-    int lastPosition = 80 - 1 - statusLength;
+    enum cut_Colors color;
+    const char *status = cut_GetStatus(result, &color);
+    int lastPosition = 80 - 1 - strlen(status);
     int extended = 0;
 
     const char *indent = shortIndent;
@@ -147,7 +144,11 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
     for (int i = 0; i < lastPosition; ++i) {
         putc('.', cut_output);
     }
-    fprintf(cut_output, "%s\n", status);
+    if (cut_arguments.noColor)
+        fprintf(cut_output, status);
+    else
+        cut_PrintColorized(color, status);
+    putc('\n', cut_output);
     if (result->failed) {
         for (const struct cut_Info *current = result->check; current; current = current->next) {
             fprintf(cut_output, "%scheck '%s' (%s:%d)\n", indent, current->message,

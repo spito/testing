@@ -7,6 +7,14 @@
 
 CUT_PRIVATE HANDLE cut_jobGroup;
 
+CUT_PRIVATE int cut_IsDebugger() {
+    return IsDebuggerPresent();
+}
+
+CUT_PRIVATE int cut_IsTerminalOutput() {
+    return _isatty(_fileno(stdout));
+}
+
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
     cut_stdout = tmpfile();
@@ -158,7 +166,7 @@ int cut_File(FILE *f, const char *content) {
 
     long offset = _lseek(fd, 0, SEEK_CUR);
     if ((size_t) _lseek(fd, 0, SEEK_END) != length)
-        goto leave;
+        goto cleanup;
 
     _lseek(fd, 0, SEEK_SET);
     buf = (char*)malloc(length);
@@ -168,10 +176,37 @@ int cut_File(FILE *f, const char *content) {
         cut_FatalExit("cannot read whole file");
 
     result = memcmp(content, buf, length) == 0;
-leave:
+cleanup:
     _lseek(fd, offset, SEEK_SET);
     free(buf);
     return result;
+}
+
+CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
+    HANDLE stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    WORD attributes = 0;
+
+    GetConsoleScreenBufferInfo(stdOut, &info)
+    switch (color) {
+    case cut_YELLOW_COLOR:
+        attributes = FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN;
+        break;
+    case cut_RED_COLOR:
+        attributes = FOREGROUND_INTENSITY | FOREGROUND_RED;
+        break;
+    case cut_GREEN_COLOR:
+        attributes = FOREGROUND_INTENSITY | FOREGROUND_GREEN;
+        break;
+    default:
+        break;
+    }
+    if (attributes)
+        SetConsoleTextAttributes(stdOut, attributes);
+    int rv = fprintf(cut_output, "%s", text);
+    if (attributes)
+        SetConsoleTextAttributes(stdOut, info.wAttributes);
+    return rv;
 }
 
 #endif // CUT_WINDOWS_H
