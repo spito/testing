@@ -22,7 +22,7 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
         cut_SendOK(counter);
     } catch (const std::exception &e) {
         std::string name = typeid(e).name();
-        cut_StopException(name.c_str(), e.what());
+        cut_StopException(name.c_str(), e.what() ? e.what() : "(no reason)");
     } catch (...) {
         cut_StopException("unknown type", "(empty message)");
     }
@@ -111,6 +111,33 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path) {
     return shortenedPath;
 }
 
+CUT_PRIVATE const char *cut_Signal(int signal) {
+    static char number[16];
+    const char *names[] = {
+        "SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP", "SIGABRT",
+        "SIGEMT", "SIGFPE", "SIGKILL", "SIGBUS", "SIGSEGV", "SIGSYS",
+        "SIGPIPE", "SIGALRM", "SIGTERM", "SIGUSR1", "SIGUSR2"
+    };
+    if (0 < signal <= sizeof(names) / sizeof(*names))
+        sprintf(number, "%s (%d)", names[signal - 1], signal);
+    else
+        sprintf(number, "%d", signal);
+    return number;
+}
+
+CUT_PRIVATE const char *cut_ReturnCode(int returnCode) {
+    static char number[16];
+    switch (returnCode) {
+    case cut_ERROR_EXIT:
+        return "ERROR EXIT";
+    case cut_FATAL_EXIT:
+        return "FATAL EXIT";
+    default:
+        sprintf(number, "%d", returnCode);
+        return number;
+    }
+}
+
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result) {
     static const char *shortIndent = "    ";
     static const char *longIndent = "        ";
@@ -157,9 +184,9 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
         if (result->timeouted)
             fprintf(cut_output, "%stimeouted (%d s)\n", indent, cut_arguments.timeout);
         else if (result->signal)
-            fprintf(cut_output, "%ssignal code: %d\n", indent, result->signal);
+            fprintf(cut_output, "%ssignal: %s\n", indent, cut_Signal(result->signal));
         if (result->returnCode)
-            fprintf(cut_output, "%sreturn code: %d\n", indent, result->returnCode);
+            fprintf(cut_output, "%sreturn code: %s\n", indent, cut_ReturnCode(result->returnCode));
         if (result->statement && result->file && result->line)
             fprintf(cut_output, "%sassert '%s' (%s:%d)\n", indent,
                     result->statement, cut_ShortPath(result->file), result->line);
