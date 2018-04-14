@@ -11,7 +11,7 @@
     assert '0' (all-fail.c:24)
 
 [  4] ctvrty...............................................................FAIL
-    signal code: 11
+    signal: SIGSEGV (11)
     debug messages:
       co to je? asi 6 (all-fail.c:28)
       tohle jeste uvidim (all-fail.c:30)
