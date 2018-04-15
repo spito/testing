@@ -372,6 +372,7 @@ CUT_PRIVATE int cut_Help() {
     "\t--help            Print out this help.\n"
     "\t--timeout <N>     Set timeout of each test in seconds. 0 for no timeout.\n"
     "\t--no-fork         Disable forking. Timeout is turned off.\n"
+    "\t--fork            Force forking. Usefull during debugging with fork enabled.\n"
     "\t--no-color        Turn off colors.\n"
     "\t--output <file>   Redirect output to the file.\n"
     "\t--short-path <N>  Make filenames in the output shorter.\n"
