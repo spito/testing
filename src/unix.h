@@ -5,9 +5,9 @@
 # include <sys/stat.h>
 # include <sys/wait.h>
 # include <sys/types.h>
-# include <sys/prctl.h>
 # include <fcntl.h>
 # include <signal.h>
+# include <errno.h>
 
 CUT_PRIVATE int cut_IsTerminalOutput() {
     return isatty(fileno(stdout));
@@ -67,11 +67,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     if (pid == -1)
         cut_FatalExit("cannot fork");
     if (!pid) {
-        r = prctl(PR_SET_PDEATHSIG, SIGTERM);
-        if (r == -1)
-            cut_FatalExit("cannot set child death signal");
-        if (getppid() != parentPid)
-            exit(cut_ERROR_EXIT);
+        /// TODO: missing feature - kill child when parent dies
         close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 
         if (cut_arguments.timeout) {
@@ -94,7 +90,10 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     int status = 0;
     close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
     cut_PipeReader(result);
-    waitpid(pid, &status, 0) != -1 || cut_FatalExit("cannot wait for unit");
+    do {
+        r = waitpid( pid, &status, 0 );
+    } while (r == -1 && errno == EINTR);
+    r != -1 || cut_FatalExit("cannot wait for unit");
     result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
     result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
     result->failed |= result->returnCode ||  result->signal;
@@ -199,4 +198,4 @@ CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
     }
     return fprintf(cut_output, "%s%s%s", prefix, text, suffix);
 }
-#endif
+#endif // CUT_UNIX_H

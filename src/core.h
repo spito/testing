@@ -37,10 +37,10 @@
 # endif
 
 
-# if defined(__unix)
+# if defined(__linux__)
+#  include "linux-define.h"
+# elif defined(__unix)
 #  include "unix-define.h"
-# elif defined(__APPLE__)
-#  include "apple-define.h"
 # elif defined(_WIN32)
 #  include "windows-define.h"
 # else
@@ -193,10 +193,10 @@ enum cut_Colors {
 #  include "execution.h"
 
 
-#  if defined(__unix)
+#  if defined(__linux__)
+#   include "linux.h"
+#  elif defined(__APPLE__) || defined(__unix)
 #   include "unix.h"
-#  elif defined(__APPLE__)
-#   include "apple.h"
 #  elif defined(_WIN32)
 #   include "windows.h"
 #  else

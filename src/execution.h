@@ -246,8 +246,10 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
             cut_ErrorExit("cannot open file %s for writing", cut_arguments.output);
     }
 
-    if (cut_arguments.help)
-        return cut_Help();
+    if (cut_arguments.help) {
+        failed = cut_Help();
+        goto cleanup;
+    }
 
     qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
 
