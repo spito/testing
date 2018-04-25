@@ -39,7 +39,7 @@
 
 # if defined(__linux__)
 #  include "linux-define.h"
-# elif defined(__unix)
+# elif defined(__APPLE__) || defined(__unix)
 #  include "unix-define.h"
 # elif defined(_WIN32)
 #  include "windows-define.h"
