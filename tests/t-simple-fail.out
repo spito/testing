@@ -1,0 +1,9 @@
+[  1] fail.................................................................FAIL
+    assert '0' (simple-fail.c:4)
+
+
+Summary:
+  tests:       1
+  succeeded:   0
+  skipped:     0
+  failed:      1

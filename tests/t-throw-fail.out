@@ -1,0 +1,9 @@
+[  1] throwFail............................................................FAIL
+    exception St13runtime_error: expected to fail
+
+
+Summary:
+  tests:       1
+  succeeded:   0
+  skipped:     0
+  failed:      1

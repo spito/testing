@@ -1,0 +1,10 @@
+[  1] debugSuccess...........................................................OK
+    debug messages:
+      Line: 4 (debug-pass.c:4)
+
+
+Summary:
+  tests:       1
+  succeeded:   1
+  skipped:     0
+  failed:      0

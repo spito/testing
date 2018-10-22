@@ -1,0 +1,11 @@
+[  1] debugFail............................................................FAIL
+    assert '0' (debug-fail.c:5)
+    debug messages:
+      Line: 4 (debug-fail.c:4)
+
+
+Summary:
+  tests:       1
+  succeeded:   0
+  skipped:     0
+  failed:      1

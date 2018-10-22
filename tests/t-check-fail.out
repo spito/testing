@@ -1,0 +1,10 @@
+[  1] checkFail............................................................FAIL
+    check '0' (check-fail.c:4)
+    check '0' (check-fail.c:5)
+
+
+Summary:
+  tests:       1
+  succeeded:   0
+  skipped:     0
+  failed:      1
