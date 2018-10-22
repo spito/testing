@@ -1,3 +1,4 @@
 *build/
 1header
 __pycache__
+.vscode
