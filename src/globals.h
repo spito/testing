@@ -22,5 +22,7 @@ CUT_PRIVATE const char *cut_emergencyLog = "cut.log";
 CUT_PRIVATE int cut_localMessageSize = 0;
 CUT_PRIVATE char cut_localMessage[CUT_MAX_LOCAL_MESSAGE_LENGTH];
 CUT_PRIVATE char *cut_localMessageCursor = NULL;
+CUT_PRIVATE cut_GlobalTear cut_globalTearUp = NULL;
+CUT_PRIVATE cut_GlobalTear cut_globalTearDown = NULL;
 
 #endif // CUT_GLOBALS_H

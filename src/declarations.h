@@ -9,6 +9,8 @@
 CUT_NORETURN int cut_FatalExit(const char *reason);
 CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
 void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
+void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
+void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 CUT_PRIVATE int cut_Help();
 CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message);
 CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message);
