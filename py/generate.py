@@ -2,6 +2,7 @@
 
 """
 Run this program as `py/generate.py src/core.h 1header/cut.h`
+              or as `py/generate.py src/core.h 1header/cut.h --no-comment`
 """
 
 import os

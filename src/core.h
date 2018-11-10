@@ -8,11 +8,12 @@
 # define CHECK(e) (void)0
 # define CHECK_FILE(f, content) (void)0
 # define TEST(name) static void unitTest_ ## name()
+# define GLOBAL_TEAR_UP() static void cut_GlobalTearUpInstance()
+# define GLOBAL_TEAR_DOWN() static void cut_GlobalTearDownInstance()
 # define SUBTEST(name) if (0)
 # define REPEATED_SUBTEST(name, count) if (0)
 # define SUBTEST_NO 0
 # define DEBUG_MSG(...) (void)0
-
 
 #else
 
@@ -76,6 +77,20 @@
     }                                                                           \
     void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
 
+# define GLOBAL_TEAR_UP()                                                       \
+    void cut_GlobalTearUpInstance();                                            \
+    CUT_CONSTRUCTOR(cut_RegisterTearUp) {                                       \
+        cut_RegisterGlobalTearUp(cut_GlobalTearUpInstance);                     \
+    }                                                                           \
+    void cut_GlobalTearUpInstance()
+
+# define GLOBAL_TEAR_DOWN()                                                     \
+    void cut_GlobalTearUpInstance();                                            \
+    CUT_CONSTRUCTOR(cut_RegisterTearDown) {                                     \
+        cut_RegisterGlobalTearUp(cut_GlobalTearDownInstance);                   \
+    }                                                                           \
+    void cut_GlobalTearDownInstance()
+
 # define SUBTEST(name)                                                          \
     if (++*cut_subtest == cut_current)                                          \
         cut_Subtest(0, #name);                                                  \
@@ -96,7 +111,10 @@ extern "C" {
 # endif
 
 typedef void(*cut_Instance)(int *, int);
+typedef void(*cut_GlobalTear)();
 void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
+void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
+void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
@@ -242,7 +260,17 @@ void cut_Register(cut_Instance instance, const char *name, const char *file, siz
     ++cut_unitTests.size;
 }
 
+void cut_RegisterGlobalTearUp(cut_GlobalTear instance) {
+    if (cut_globalTearUp)
+        cut_FatalExit("cannot overwrite tear up function");
+    cut_globalTearUp = instance;
+}
 
+void cut_RegisterGlobalTearDown(cut_GlobalTear instance) {
+    if (cut_globalTearDown)
+        cut_FatalExit("cannot overwrite tear down function");
+    cut_globalTearDown = instance;
+}
 
 CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     static const char *help = "--help";
@@ -372,7 +400,7 @@ CUT_PRIVATE int cut_Help() {
     "\t--help            Print out this help.\n"
     "\t--timeout <N>     Set timeout of each test in seconds. 0 for no timeout.\n"
     "\t--no-fork         Disable forking. Timeout is turned off.\n"
-    "\t--fork            Force forking. Usefull during debugging with fork enabled.\n"
+    "\t--fork            Force forking. Usefull during debugging with fork disabled.\n"
     "\t--no-color        Turn off colors.\n"
     "\t--output <file>   Redirect output to the file.\n"
     "\t--short-path <N>  Make filenames in the output shorter.\n"

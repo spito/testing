@@ -2,6 +2,7 @@
 
 """
 Run this program as `py/check.py build/tests tests`
+              or as `py/check.py build/tests tests --bootstrap`
 """
 
 import os

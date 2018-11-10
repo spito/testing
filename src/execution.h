@@ -16,6 +16,8 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (setjmp(cut_executionPoint))
         goto cleanup;
+    if (cut_globalTearUp)
+        cut_globalTearUp();
     try {
         int counter = 0;
         cut_unitTests.tests[testId].instance(&counter, subtest);
@@ -27,6 +29,8 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
         cut_StopException("unknown type", "(empty message)");
     }
 cleanup:
+    if (cut_globalTearDown)
+        cut_globalTearDown();
     cut_ResumeIO();
 }
 
@@ -36,10 +40,14 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (setjmp(cut_executionPoint))
         goto cleanup;
+    if (cut_globalTearUp)
+        cut_globalTearUp();
     int counter = 0;
     cut_unitTests.tests[testId].instance(&counter, subtest);
     cut_SendOK(counter);
 cleanup:
+    if (cut_globalTearDown)
+        cut_globalTearDown();
     cut_ResumeIO();
 }
 # endif

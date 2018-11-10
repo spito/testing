@@ -60,6 +60,8 @@ Runtime configuration is done via command line arguments. Arguments are used to 
  * `ASSERT_FILE(file, content)` - Check if the content of the `file` equals to the `content`. If not, aborts the test. The type of `file` should be `FILE *` and such file has to be opened for reading. It is possible to check even `stdout` and `stderr`. 
  * `CHECK_FILE(file, content)` - Same as the previous except it does not aborts the test.
  * `DEBUG_MSG(fmt, ...)` - Write a debug message. Use printf-like formatting.
+ * `GLOBAL_TEAR_UP()` - Defines a function executed before each test/subtest.
+ * `GLOBAL_TEAR_DOWN()` - Defines a function executed after each test/subtest even in case of assert failure or uncaught exception. The function is not executed in case of abnormal termination of test.
 
 Note: all asserting and checking macros can be used deeper in the stack, not just in the top level test function.
 
