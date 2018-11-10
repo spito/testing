@@ -8,11 +8,12 @@
 # define CHECK(e) (void)0
 # define CHECK_FILE(f, content) (void)0
 # define TEST(name) static void unitTest_ ## name()
+# define GLOBAL_TEAR_UP() static void cut_GlobalTearUpInstance()
+# define GLOBAL_TEAR_DOWN() static void cut_GlobalTearDownInstance()
 # define SUBTEST(name) if (0)
 # define REPEATED_SUBTEST(name, count) if (0)
 # define SUBTEST_NO 0
 # define DEBUG_MSG(...) (void)0
-
 
 #else
 
@@ -37,7 +38,20 @@
 # endif
 
 
-# if defined(__unix)
+# if defined(__linux__)
+#ifndef CUT_LINUX_DEFINE_H
+#define CUT_LINUX_DEFINE_H
+
+#if defined(__GNUC__) || defined(__clang)
+# define CUT_NORETURN __attribute__((noreturn))
+# define CUT_CONSTRUCTOR(name) __attribute__((constructor)) static void name()
+# define CUT_UNUSED(name) __attribute__((unused)) name
+#else
+# error "unsupported compiler"
+#endif
+
+#endif // CUT_LINUX_DEFINE_H
+# elif defined(__APPLE__) || defined(__unix)
 #ifndef CUT_UNIX_DEFINE_H
 #define CUT_UNIX_DEFINE_H
 
@@ -50,19 +64,6 @@
 #endif
 
 #endif // CUT_UNIX_DEFINE_H
-# elif defined(__APPLE__)
-#ifndef CUT_APPLE_DEFINE_H
-#define CUT_APPLE_DEFINE_H
-
-#if defined(__GNUC__) || defined(__clang)
-# define CUT_NORETURN __attribute__((noreturn))
-# define CUT_CONSTRUCTOR(name) __attribute__((constructor)) static void name()
-# define CUT_UNUSED(name) __attribute__((unused)) name
-#else
-# error "unsupported compiler"
-#endif
-
-#endif // CUT_APPLE_DEFINE_H
 # elif defined(_WIN32)
 #ifndef CUT_WINDOWS_DEFINE_H
 #define CUT_WINDOWS_DEFINE_H
@@ -126,6 +127,20 @@
     }                                                                           \
     void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
 
+# define GLOBAL_TEAR_UP()                                                       \
+    void cut_GlobalTearUpInstance();                                            \
+    CUT_CONSTRUCTOR(cut_RegisterTearUp) {                                       \
+        cut_RegisterGlobalTearUp(cut_GlobalTearUpInstance);                     \
+    }                                                                           \
+    void cut_GlobalTearUpInstance()
+
+# define GLOBAL_TEAR_DOWN()                                                     \
+    void cut_GlobalTearUpInstance();                                            \
+    CUT_CONSTRUCTOR(cut_RegisterTearDown) {                                     \
+        cut_RegisterGlobalTearUp(cut_GlobalTearDownInstance);                   \
+    }                                                                           \
+    void cut_GlobalTearDownInstance()
+
 # define SUBTEST(name)                                                          \
     if (++*cut_subtest == cut_current)                                          \
         cut_Subtest(0, #name);                                                  \
@@ -146,7 +161,10 @@ extern "C" {
 # endif
 
 typedef void(*cut_Instance)(int *, int);
+typedef void(*cut_GlobalTear)();
 void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
+void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
+void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
@@ -260,6 +278,8 @@ CUT_PRIVATE const char *cut_emergencyLog = "cut.log";
 CUT_PRIVATE int cut_localMessageSize = 0;
 CUT_PRIVATE char cut_localMessage[CUT_MAX_LOCAL_MESSAGE_LENGTH];
 CUT_PRIVATE char *cut_localMessageCursor = NULL;
+CUT_PRIVATE cut_GlobalTear cut_globalTearUp = NULL;
+CUT_PRIVATE cut_GlobalTear cut_globalTearDown = NULL;
 
 #endif // CUT_GLOBALS_H
 #ifndef CUT_FRAGMENTS_H
@@ -502,6 +522,8 @@ CUT_PRIVATE size_t cut_FragmentReceiveProcessed(cut_FragmentReceiveStatus *statu
 CUT_NORETURN int cut_FatalExit(const char *reason);
 CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
 void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
+void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
+void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 CUT_PRIVATE int cut_Help();
 CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message);
 CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message);
@@ -905,17 +927,21 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (setjmp(cut_executionPoint))
         goto cleanup;
+    if (cut_globalTearUp)
+        cut_globalTearUp();
     try {
         int counter = 0;
         cut_unitTests.tests[testId].instance(&counter, subtest);
         cut_SendOK(counter);
     } catch (const std::exception &e) {
         std::string name = typeid(e).name();
-        cut_StopException(name.c_str(), e.what());
+        cut_StopException(name.c_str(), e.what() ? e.what() : "(no reason)");
     } catch (...) {
         cut_StopException("unknown type", "(empty message)");
     }
 cleanup:
+    if (cut_globalTearDown)
+        cut_globalTearDown();
     cut_ResumeIO();
 }
 
@@ -925,10 +951,14 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (setjmp(cut_executionPoint))
         goto cleanup;
+    if (cut_globalTearUp)
+        cut_globalTearUp();
     int counter = 0;
     cut_unitTests.tests[testId].instance(&counter, subtest);
     cut_SendOK(counter);
 cleanup:
+    if (cut_globalTearDown)
+        cut_globalTearDown();
     cut_ResumeIO();
 }
 # endif
@@ -1000,6 +1030,33 @@ CUT_PRIVATE const char *cut_ShortPath(const char *path) {
     return shortenedPath;
 }
 
+CUT_PRIVATE const char *cut_Signal(int signal) {
+    static char number[16];
+    const char *names[] = {
+        "SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP", "SIGABRT",
+        "SIGEMT", "SIGFPE", "SIGKILL", "SIGBUS", "SIGSEGV", "SIGSYS",
+        "SIGPIPE", "SIGALRM", "SIGTERM", "SIGUSR1", "SIGUSR2"
+    };
+    if (0 < signal <= sizeof(names) / sizeof(*names))
+        sprintf(number, "%s (%d)", names[signal - 1], signal);
+    else
+        sprintf(number, "%d", signal);
+    return number;
+}
+
+CUT_PRIVATE const char *cut_ReturnCode(int returnCode) {
+    static char number[16];
+    switch (returnCode) {
+    case cut_ERROR_EXIT:
+        return "ERROR EXIT";
+    case cut_FATAL_EXIT:
+        return "FATAL EXIT";
+    default:
+        sprintf(number, "%d", returnCode);
+        return number;
+    }
+}
+
 CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result) {
     static const char *shortIndent = "    ";
     static const char *longIndent = "        ";
@@ -1046,9 +1103,9 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
         if (result->timeouted)
             fprintf(cut_output, "%stimeouted (%d s)\n", indent, cut_arguments.timeout);
         else if (result->signal)
-            fprintf(cut_output, "%ssignal code: %d\n", indent, result->signal);
+            fprintf(cut_output, "%ssignal: %s\n", indent, cut_Signal(result->signal));
         if (result->returnCode)
-            fprintf(cut_output, "%sreturn code: %d\n", indent, result->returnCode);
+            fprintf(cut_output, "%sreturn code: %s\n", indent, cut_ReturnCode(result->returnCode));
         if (result->statement && result->file && result->line)
             fprintf(cut_output, "%sassert '%s' (%s:%d)\n", indent,
                     result->statement, cut_ShortPath(result->file), result->line);
@@ -1108,8 +1165,10 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
             cut_ErrorExit("cannot open file %s for writing", cut_arguments.output);
     }
 
-    if (cut_arguments.help)
-        return cut_Help();
+    if (cut_arguments.help) {
+        failed = cut_Help();
+        goto cleanup;
+    }
 
     qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
 
@@ -1180,9 +1239,9 @@ cleanup:
 #endif // CUT_EXECUTION_H
 
 
-#  if defined(__unix)
-#ifndef CUT_UNIX_H
-#define CUT_UNIX_H
+#  if defined(__linux__)
+#ifndef CUT_LINUX_H
+#define CUT_LINUX_H
 
 # include <unistd.h>
 # include <sys/stat.h>
@@ -1382,10 +1441,10 @@ CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
     }
     return fprintf(cut_output, "%s%s%s", prefix, text, suffix);
 }
-#endif
-#  elif defined(__APPLE__)
-#ifndef CUT_APPLE_H
-#define CUT_APPLE_H
+#endif // CUT_LINUX_H
+#  elif defined(__APPLE__) || defined(__unix)
+#ifndef CUT_UNIX_H
+#define CUT_UNIX_H
 
 # include <unistd.h>
 # include <sys/stat.h>
@@ -1584,7 +1643,7 @@ CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
     }
     return fprintf(cut_output, "%s%s%s", prefix, text, suffix);
 }
-#endif // CUT_APPLE_H
+#endif // CUT_UNIX_H
 #  elif defined(_WIN32)
 #ifndef CUT_WINDOWS_H
 #define CUT_WINDOWS_H
@@ -1841,7 +1900,17 @@ void cut_Register(cut_Instance instance, const char *name, const char *file, siz
     ++cut_unitTests.size;
 }
 
+void cut_RegisterGlobalTearUp(cut_GlobalTear instance) {
+    if (cut_globalTearUp)
+        cut_FatalExit("cannot overwrite tear up function");
+    cut_globalTearUp = instance;
+}
 
+void cut_RegisterGlobalTearDown(cut_GlobalTear instance) {
+    if (cut_globalTearDown)
+        cut_FatalExit("cannot overwrite tear down function");
+    cut_globalTearDown = instance;
+}
 
 CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     static const char *help = "--help";
@@ -1971,6 +2040,7 @@ CUT_PRIVATE int cut_Help() {
     "\t--help            Print out this help.\n"
     "\t--timeout <N>     Set timeout of each test in seconds. 0 for no timeout.\n"
     "\t--no-fork         Disable forking. Timeout is turned off.\n"
+    "\t--fork            Force forking. Usefull during debugging with fork disabled.\n"
     "\t--no-color        Turn off colors.\n"
     "\t--output <file>   Redirect output to the file.\n"
     "\t--short-path <N>  Make filenames in the output shorter.\n"
