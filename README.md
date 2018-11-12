@@ -63,6 +63,8 @@ Runtime configuration is done via command line arguments. Arguments are used to 
  * `GLOBAL_TEAR_UP()` - Defines a function executed before each test/subtest.
  * `GLOBAL_TEAR_DOWN()` - Defines a function executed after each test/subtest even in case of assert failure or uncaught exception. The function is not executed in case of abnormal termination of test.
 
+When `SUBTEST(name)` or `REPEATED_SUBTEST(name, count)` is used, the whole test is run several times. The first run does not execute any of subtest, its purpose is to figure out how many subtests are in the test. The subsequent executions will run subtests one by one, eventualy each in its own process.
+
 Note: all asserting and checking macros can be used deeper in the stack, not just in the top level test function.
 
  ### Example

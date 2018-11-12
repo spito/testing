@@ -1,4 +1,4 @@
-[  1] withSubtest
+[  1] withSubtest: 4 subtests
     S1.....................................................................FAIL
         check '0' (simple-subtest-fail.c:7)
 

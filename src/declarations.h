@@ -39,7 +39,7 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv);
 CUT_PRIVATE int cut_SkipUnit(int testId);
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color);
 CUT_PRIVATE const char *cut_ShortPath(const char *path);
-CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result);
+CUT_PRIVATE void cut_PrintResult(int base, int subtest, int subtests, const struct cut_UnitResult *result);
 CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info);
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result);
 CUT_PRIVATE int cut_TestComparator(const void *lhs, const void *rhs);
