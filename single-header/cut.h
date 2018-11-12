@@ -50,6 +50,12 @@
 # error "unsupported compiler"
 #endif
 
+#if defined(__clang__)
+# pragma clang system_header
+#elif defined(__GNUC__)
+# pragma GCC system_header
+#endif
+
 #endif // CUT_LINUX_DEFINE_H
 # elif defined(__APPLE__) || defined(__unix)
 #ifndef CUT_UNIX_DEFINE_H
@@ -63,12 +69,18 @@
 # error "unsupported compiler"
 #endif
 
+#if defined(__clang__)
+# pragma clang system_header
+#elif defined(__GNUC__)
+# pragma GCC system_header
+#endif
+
+
 #endif // CUT_UNIX_DEFINE_H
 # elif defined(_WIN32)
 #ifndef CUT_WINDOWS_DEFINE_H
 #define CUT_WINDOWS_DEFINE_H
 
-#define _WIN32_WINNT 0x0500
 #if defined(CUT_NO_COLOR)
 # undef CUT_NO_COLOR
 #endif
@@ -92,6 +104,13 @@
 #else
 # error "unsupported compiler"
 #endif
+
+#if defined(__clang__)
+# pragma clang system_header
+#elif defined(__GNUC__)
+# pragma GCC system_header
+#endif
+
 
 #endif // CUT_WINDOWS_DEFINE_H
 # else
@@ -148,9 +167,9 @@
 
 # define REPEATED_SUBTEST(name, count)                                          \
     *cut_subtest = (count);                                                     \
-    if (count)                                                                  \
+    if (cut_current && count)                                                   \
         cut_Subtest(cut_current, #name);                                        \
-    if (count)
+    if (cut_current && count)
 
 # define SUBTEST_NO cut_current
 
@@ -552,7 +571,7 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv);
 CUT_PRIVATE int cut_SkipUnit(int testId);
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color);
 CUT_PRIVATE const char *cut_ShortPath(const char *path);
-CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result);
+CUT_PRIVATE void cut_PrintResult(int base, int subtest, int subtests, const struct cut_UnitResult *result);
 CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info);
 CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result);
 CUT_PRIVATE int cut_TestComparator(const void *lhs, const void *rhs);
@@ -1057,7 +1076,7 @@ CUT_PRIVATE const char *cut_ReturnCode(int returnCode) {
     }
 }
 
-CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_PrintResult(int base, int subtest, int subtests, const struct cut_UnitResult *result) {
     static const char *shortIndent = "    ";
     static const char *longIndent = "        ";
     enum cut_Colors color;
@@ -1067,8 +1086,6 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
 
     const char *indent = shortIndent;
     if (result->name && subtest) {
-        if (subtest < 0)
-            putc('\n', cut_output);
         if (result->number <= 1)
             lastPosition -= fprintf(cut_output, "%s%s", indent, result->name);
         else {
@@ -1084,16 +1101,20 @@ CUT_PRIVATE void cut_PrintResult(int base, int subtest, const struct cut_UnitRes
     } else {
         lastPosition -= base;
     }
-    if (!subtest)
+    if (subtests < 0)
         extended = 1;
 
-    for (int i = 0; i < lastPosition; ++i) {
-        putc('.', cut_output);
+    if (!subtest && subtests > 0) {
+        fprintf(cut_output, ": %d subtests", subtests);
+    } else {
+        for (int i = 0; i < lastPosition; ++i) {
+            putc('.', cut_output);
+        }
+        if (cut_arguments.noColor)
+            fprintf(cut_output, status);
+        else
+            cut_PrintColorized(color, status);
     }
-    if (cut_arguments.noColor)
-        fprintf(cut_output, status);
-    else
-        cut_PrintColorized(color, status);
     putc('\n', cut_output);
     if (result->failed) {
         for (const struct cut_Info *current = result->check; current; current = current->next) {
@@ -1178,12 +1199,11 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
         ++executed;
         int base = fprintf(cut_output, "[%3i] %s", executed, cut_unitTests.tests[i].name);
         fflush(cut_output);
-        int subtests = 1;
+        int subtests = 0;
         if (cut_arguments.subtestId > 0)
             subtests = cut_arguments.subtestId;
         int subtestFailure = 0;
-        int firstSubtest = -1;
-        for (int subtest = 1; subtest <= subtests; ++subtest) {
+        for (int subtest = 0; subtest <= subtests; ++subtest) {
             if (cut_arguments.subtestId >= 0 && cut_arguments.subtestId != subtest)
                 continue;
             struct cut_UnitResult result;
@@ -1202,18 +1222,17 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
                 fclose(emergencyLog);
                 remove(cut_emergencyLog);
             }
-            cut_PrintResult(base, subtest * firstSubtest, &result);
-            cut_CleanMemory(&result);
             if (result.subtests > subtests)
                 subtests = result.subtests;
-            firstSubtest = 1;
+            cut_PrintResult(base, subtest, subtests, &result);
+            cut_CleanMemory(&result);
         }
         if (subtests > 1) {
             base = fprintf(cut_output, "[%3i] %s (overall)", executed, cut_unitTests.tests[i].name);
             struct cut_UnitResult result;
             memset(&result, 0, sizeof(result));
             result.failed = subtestFailure;
-            cut_PrintResult(base, 0, &result);
+            cut_PrintResult(base, 0, -1, &result);
         }
         if (subtestFailure)
             ++failed;
@@ -2040,7 +2059,7 @@ CUT_PRIVATE int cut_Help() {
     "\t--help            Print out this help.\n"
     "\t--timeout <N>     Set timeout of each test in seconds. 0 for no timeout.\n"
     "\t--no-fork         Disable forking. Timeout is turned off.\n"
-    "\t--fork            Force forking. Usefull during debugging with fork disabled.\n"
+    "\t--fork            Force forking. Usefull during debugging with fork enabled.\n"
     "\t--no-color        Turn off colors.\n"
     "\t--output <file>   Redirect output to the file.\n"
     "\t--short-path <N>  Make filenames in the output shorter.\n"
