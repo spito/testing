@@ -9,4 +9,11 @@
 # error "unsupported compiler"
 #endif
 
+#if defined(__clang__)
+# pragma clang system_header
+#elif defined(__GNUC__)
+# pragma GCC system_header
+#endif
+
+
 #endif // CUT_UNIX_DEFINE_H

@@ -1,7 +1,6 @@
 #ifndef CUT_WINDOWS_DEFINE_H
 #define CUT_WINDOWS_DEFINE_H
 
-#define _WIN32_WINNT 0x0500
 #if defined(CUT_NO_COLOR)
 # undef CUT_NO_COLOR
 #endif
@@ -25,5 +24,12 @@
 #else
 # error "unsupported compiler"
 #endif
+
+#if defined(__clang__)
+# pragma clang system_header
+#elif defined(__GNUC__)
+# pragma GCC system_header
+#endif
+
 
 #endif // CUT_WINDOWS_DEFINE_H
