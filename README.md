@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/spito/testing.svg?branch=master)](https://travis-ci.org/spito/testing)
+
 # cut - C Unit Tests
 
 CUT - C unit testing is a singles header testing framework. By default each unit test is run as a separate process to avoid unwanted corrupted memory and to make every unit test independent to other tests. Furthemore it provides timeout functionality to avoid infinite loops in tests. It can be compiled as C++ in such case it can also catch exceptions.
