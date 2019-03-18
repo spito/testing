@@ -202,10 +202,10 @@ CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
         break;
     }
     if (attributes)
-        SetConsoleTextAttributes(stdOut, attributes);
+        SetConsoleTextAttribute(stdOut, attributes);
     int rv = fprintf(cut_output, "%s", text);
     if (attributes)
-        SetConsoleTextAttributes(stdOut, info.wAttributes);
+        SetConsoleTextAttribute(stdOut, info.wAttributes);
     return rv;
 }
 
