@@ -187,7 +187,7 @@ CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
     CONSOLE_SCREEN_BUFFER_INFO info;
     WORD attributes = 0;
 
-    GetConsoleScreenBufferInfo(stdOut, &info)
+    GetConsoleScreenBufferInfo(stdOut, &info);
     switch (color) {
     case cut_YELLOW_COLOR:
         attributes = FOREGROUND_INTENSITY | FOREGROUND_RED | FOREGROUND_GREEN;
