@@ -17,8 +17,8 @@ CUT_PRIVATE int cut_IsTerminalOutput() {
 
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
-    cut_stdout = tmpfile();
-    cut_stderr = tmpfile();
+    (cut_stdout = fopen(tmpnam(NULL), "w+TD")) || cut_FatalExit("cannot open temporary file");
+    (cut_stderr = fopen(tmpnam(NULL), "w+TD")) || cut_FatalExit("cannot open temporary file");
     cut_originalStdOut = _dup(1);
     cut_originalStdErr = _dup(2);
 
