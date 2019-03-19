@@ -1,11 +1,6 @@
 #ifndef CUT_WINDOWS_DEFINE_H
 #define CUT_WINDOWS_DEFINE_H
 
-#if defined(CUT_NO_COLOR)
-# undef CUT_NO_COLOR
-#endif
-#define CUT_NO_COLOR 1
-
 #if defined(__GNUC__) || defined(__clang)
 # define CUT_NORETURN __attribute__((noreturn))
 # define CUT_CONSTRUCTOR(name) __attribute__((constructor)) static void name()
