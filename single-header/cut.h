@@ -1177,6 +1177,8 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     int failed = 0;
     int executed = 0;
 
+    qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
+
     if (cut_PreRun())
         goto cleanup;
 
@@ -1190,8 +1192,6 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
         failed = cut_Help();
         goto cleanup;
     }
-
-    qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
 
     for (int i = 0; i < cut_unitTests.size; ++i) {
         if (cut_SkipUnit(i))
@@ -1683,8 +1683,8 @@ CUT_PRIVATE int cut_IsTerminalOutput() {
 
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
-    cut_stdout = tmpfile();
-    cut_stderr = tmpfile();
+    (cut_stdout = fopen(tmpnam(NULL), "w+TD")) || cut_FatalExit("cannot open temporary file");
+    (cut_stderr = fopen(tmpnam(NULL), "w+TD")) || cut_FatalExit("cannot open temporary file");
     cut_originalStdOut = _dup(1);
     cut_originalStdErr = _dup(2);
 
