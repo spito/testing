@@ -247,6 +247,8 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     int failed = 0;
     int executed = 0;
 
+    qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
+
     if (cut_PreRun())
         goto cleanup;
 
@@ -260,8 +262,6 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
         failed = cut_Help();
         goto cleanup;
     }
-
-    qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
 
     for (int i = 0; i < cut_unitTests.size; ++i) {
         if (cut_SkipUnit(i))
