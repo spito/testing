@@ -1676,13 +1676,20 @@ CUT_PRIVATE int cut_IsTerminalOutput() {
     return _isatty(_fileno(stdout));
 }
 
+CUT_PRIVATE int cut_CreateTemporaryFile(FILE **file) {
+    const char *name = tmpnam(NULL);
+    while (*name == '/' || *name == '\\')
+        ++name;
+    *file = fopen(name, "w+TD");
+    return !!*file;
+}
+
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
-    (cut_stdout = fopen(tmpnam(NULL), "w+TD")) || cut_FatalExit("cannot open temporary file");
-    (cut_stderr = fopen(tmpnam(NULL), "w+TD")) || cut_FatalExit("cannot open temporary file");
+    cut_CreateTemporaryFile(&cut_stdout) || cut_FatalExit("cannot open temporary file");
+    cut_CreateTemporaryFile(&cut_stderr) || cut_FatalExit("cannot open temporary file");
     cut_originalStdOut = _dup(1);
     cut_originalStdErr = _dup(2);
-
     _dup2(_fileno(cut_stdout), 1);
     _dup2(_fileno(cut_stderr), 2);
 }
