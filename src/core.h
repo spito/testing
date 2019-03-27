@@ -87,7 +87,7 @@
 # define GLOBAL_TEAR_DOWN()                                                     \
     void cut_GlobalTearUpInstance();                                            \
     CUT_CONSTRUCTOR(cut_RegisterTearDown) {                                     \
-        cut_RegisterGlobalTearUp(cut_GlobalTearDownInstance);                   \
+        cut_RegisterGlobalTearDown(cut_GlobalTearDownInstance);                 \
     }                                                                           \
     void cut_GlobalTearDownInstance()
 
