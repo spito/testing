@@ -1,12 +1,12 @@
 [![Build Status](https://travis-ci.org/spito/testing.svg?branch=master)](https://travis-ci.org/spito/testing)
 
-# cut - C Unit Tests
+# _CUT_ - C Unit Tests
 
-CUT - C unit testing is a singles header testing framework. By default each unit test is run as a separate process to avoid unwanted corrupted memory and to make every unit test independent to other tests. Furthemore it provides timeout functionality to avoid infinite loops in tests. It can be compiled as C++ in such case it can also catch exceptions.
+_CUT_ - C unit testing is a singles header testing framework. By default each unit test is run as a separate process to avoid unwanted corrupted memory and to make every unit test independent to other tests. Furthemore, it provides timeout functionality to avoid infinite loops in tests. It can be compiled as C++, in such case it can also catch exceptions.
 
-It is multiplatform. It works on Linux, OSX, and Windows and it is compilable by GCC, clang, and MSVC.
+It is multiplatform. It works on Linux, OSX, and Windows and it can be compiled by GCC, clang, and MSVC.
 
-## How to use *cut*
+## How to use _CUT_
 
 First of all, `#include <cut.h>` into the place where you want to write unit tests. These are created using `TEST` macro. Use `ASSERT`/`CHECK` to test values and `ASSERT_FILE`/`CHECK_FILE` to test a content of a specified file (such as `stdout`). The difference between then is that `ASSERT` stops a test when it fails while `CHECK` remembers the failure and continues on.
 
@@ -23,12 +23,15 @@ TEST(output) {
 }
 ```
 
-To actually enable tests, you have to define either `CUT` or `DEBUG` to turn on testing features. There also need to be generated `main` function which si done when macro `CUT_MAIN` is defined (before `#include`). If no such enabling macro exists, every macro defined by _cut_ is turned into harmless no-op.
+To actually enable tests, you have to either `#define CUT` or `#define DEBUG` to turn on testing features. There also need to generate `main` function which si done by defining `CUT_MAIN` macro (before `#include`). If no such enabling macro exists, every macro defined by _CUT_ is turned into harmless no-op.
 
 ```c
 #define CUT_MAIN
 #include <cut.h>
 ```
+
+> Note: when defining `CUT_MAIN`, place `#include <cut.h>` before any other standard `#include`. _CUT_ needs to `#define _POSIX_C_SOURCE 199309L` and `#define _XOPEN_SOURCE 500` to handle signals properly.
+
 
 ### Configuration options
 
@@ -41,7 +44,7 @@ Compile time macro directives:
  *  `CUT_NO_FORK` - Disable fork by default.
  *  `CUT_NO_COLOR` - Turn off colors.
 
-Runtime configuration is done via command line arguments. Arguments are used to filter unit tests by their names. For example if arguments are _"ab"_ and _"c"_, only test whose names contains these substrings are executed while the rest of the tests are skipped. Additionally there are few arguments that have different meaning:
+Runtime configuration is done via command line arguments. Arguments are used to filter unit tests by their names. For example if arguments are _"ab"_ and _"c"_, only test whose names contains these substrings are executed while the rest of the tests are skipped. Additionally, there are few arguments that have different meaning:
 
  * `--help` - Print a help.
  * `--timeout <N>` - Set timeout of each test in seconds. 0 for no timeout. Overrides `CUT_TIMEOUT` value.
@@ -71,13 +74,13 @@ Note: all asserting and checking macros can be used deeper in the stack, not jus
 
  ### Example
 
- ```c
- TEST(first) {
+```c
+TEST(first) {
     int value = magicFunction(0);
     CHECK(value > 0);
     int value2 = magicFunction(value);
     ASSERT(value2 > value);
- }
+}
 
 TEST(second) {
     prepareMagic();
@@ -107,10 +110,4 @@ TEST(forth) {
     CHECK_FILE(stdout, "secret spell");
     CHECK_FILE(stderr, "");
 }
- ```
-
-
-
-
-
-
+```
