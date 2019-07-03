@@ -149,33 +149,28 @@ cleanup:
 }
 
 CUT_PRIVATE int cut_IsDebugger() {
-    const char *desired = "TracerPid:";
-    const char *found = NULL;
-    int tracerPid;
     int result = 0;
-    int status = open("/proc/self/status", O_RDONLY);
-    if (status < 0)
+    char c;
+
+    int pid = getpid();
+    char cmd[60];
+    sprintf(cmd, "ps -p %d -o state=", pid);
+
+    FILE *status = popen(cmd, "r");
+
+    if (!status)
         return 0;
 
-    char *buffer;
-    size_t length;
-    
-    if (!cut_ReadWholeFile(status, &buffer, &length))
-        goto cleanup;
+    while ((c = fgetc(status)) != EOF) {
+        if (c == 'X') {
+            result = 1;
+            break;
+        }
+    }
 
-    found = strstr(buffer, desired);
-    if (!found)
-        goto cleanup;
-
-    if (!sscanf(found + strlen(desired), "%i", &tracerPid))
-        goto cleanup;
-
-    if (tracerPid)
-        result = 1;
-cleanup:
-    free(buffer);
-    close(status);
+    pclose(status);
     return result;
+    
 }
 
 CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
