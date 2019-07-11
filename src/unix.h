@@ -1,13 +1,15 @@
 #ifndef CUT_UNIX_H
 #define CUT_UNIX_H
 
+# include <sys/types.h>
+# include <sys/sysctl.h>
 # include <unistd.h>
 # include <sys/stat.h>
 # include <sys/wait.h>
-# include <sys/types.h>
 # include <fcntl.h>
 # include <signal.h>
 # include <errno.h>
+# include <assert.h>
 
 CUT_PRIVATE int cut_IsTerminalOutput() {
     return isatty(fileno(stdout));
@@ -149,28 +151,24 @@ cleanup:
 }
 
 CUT_PRIVATE int cut_IsDebugger() {
-    int result = 0;
-    char c;
+    int                 junk;
+    int                 mib[4];
+    struct kinfo_proc   info;
+    size_t              size;
 
-    int pid = getpid();
-    char cmd[60];
-    sprintf(cmd, "ps -p %d -o state=", pid);
+    info.kp_proc.p_flag = 0;
 
-    FILE *status = popen(cmd, "r");
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC;
+    mib[2] = KERN_PROC_PID;
+    mib[3] = getpid();
 
-    if (!status)
-        return 0;
+    size = sizeof(info);
+    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+    assert(junk == 0);
 
-    while ((c = fgetc(status)) != EOF) {
-        if (c == 'X') {
-            result = 1;
-            break;
-        }
-    }
 
-    pclose(status);
-    return result;
-    
+    return (info.kp_proc.p_flag & P_TRACED);
 }
 
 CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
