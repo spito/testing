@@ -13,7 +13,9 @@ Should not harm elsewhere.
 # define ASSERT_FILE(f, content) (void)0
 # define CHECK(e) (void)0
 # define CHECK_FILE(f, content) (void)0
+# define INPUT(content) (void)0
 # define TEST(name) static void unitTest_ ## name()
+# define KONTR_TEST(name, points, prerequisities) static void unitTest_ ## name()
 # define GLOBAL_TEAR_UP() static void cut_GlobalTearUpInstance()
 # define GLOBAL_TEAR_DOWN() static void cut_GlobalTearDownInstance()
 # define SUBTEST(name) if (0)
@@ -42,6 +44,15 @@ Should not harm elsewhere.
 #  undef CUT_NO_COLOR
 #  define CUT_NO_COLOR 1
 # endif
+
+# if !defined(CUT_MAX_PATH)
+#  define CUT_MAX_PATH 80
+# endif
+
+# if !defined(CUT_FORMAT)
+#  define CUT_FORMAT "standard"
+# endif
+
 
 
 # if defined(__linux__)
@@ -76,10 +87,26 @@ Should not harm elsewhere.
         cut_Check("content of file is not equal", __FILE__, __LINE__);          \
     } } while(0)
 
+# define INPUT(content) do {                                                    \
+    if (!cut_Input(content)) {                                                  \
+        cut_Stop("cannot set contents a an input file", __FILE__, __LINE__);    \
+    } } while(0)
+/*
+# define KONTR_TEST(name, points, prerequisities)                               \
+    void cut_instance_ ## name(int *, int);                                     \
+    CUT_CONSTRUCTOR(cut_Register ## name) {                                     \
+        const char *required[] = prerequisities;                                \
+        size_t requiredSize = sizeof(required) / sizeof(*required);             \
+        cut_Register(cut_instance_ ## name, #name, points, required,            \
+                     requiredSize __FILE__, __LINE__);                          \
+    }
+    void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
+*/
+
 # define TEST(name)                                                             \
     void cut_instance_ ## name(int *, int);                                     \
     CUT_CONSTRUCTOR(cut_Register ## name) {                                     \
-        cut_Register(cut_instance_ ## name, #name, __FILE__, __LINE__);         \
+        cut_Register(cut_instance_ ## name, #name,  __FILE__, __LINE__);                                       \
     }                                                                           \
     void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
 
@@ -124,6 +151,7 @@ void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
+int cut_Input(const char *content);
 void cut_Subtest(int number, const char *name);
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 
@@ -135,86 +163,13 @@ void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 #  include <stdarg.h>
 
 
-struct cut_Info {
-    char *message;
-    char *file;
-    int line;
-    struct cut_Info *next;
-};
-
-enum cut_MessageType {
-    cut_NO_TYPE = 0,
-    cut_MESSAGE_SUBTEST,
-    cut_MESSAGE_DEBUG,
-    cut_MESSAGE_OK,
-    cut_MESSAGE_FAIL,
-    cut_MESSAGE_EXCEPTION,
-    cut_MESSAGE_TIMEOUT,
-    cut_MESSAGE_CHECK
-};
-
-struct cut_UnitResult {
-    char *name;
-    int number;
-    int subtests;
-    int failed;
-    char *file;
-    int line;
-    char *statement;
-    char *exceptionType;
-    char *exceptionMessage;
-    int returnCode;
-    int signal;
-    int timeouted;
-    struct cut_Info *debug;
-    struct cut_Info *check;
-};
-
-struct cut_UnitTest {
-    cut_Instance instance;
-    const char *name;
-    const char *file;
-    size_t line;
-};
-
-struct cut_UnitTestArray {
-    int size;
-    int capacity;
-    struct cut_UnitTest *tests;
-};
-
-struct cut_Arguments {
-    int help;
-    unsigned timeout;
-    int noFork;
-    int noColor;
-    char *output;
-    int testId;
-    int subtestId;
-    int matchSize;
-    char **match;
-    const char *selfName;
-    int shortPath;
-};
-
-enum cut_ReturnCodes {
-    cut_NORMAL_EXIT = 0,
-    cut_ERROR_EXIT = 254,
-    cut_FATAL_EXIT = 255
-};
-
-enum cut_Colors {
-    cut_NO_COLOR = 0,
-    cut_YELLOW_COLOR,
-    cut_GREEN_COLOR,
-    cut_RED_COLOR
-};
-
-#  include "globals.h"
 #  include "fragments.h"
 #  include "declarations.h"
+#  include "globals.h"
 #  include "messages.h"
+#  include "output.h"
 #  include "execution.h"
+#  include "queue.h"
 
 
 #  if defined(__linux__)
@@ -278,7 +233,7 @@ void cut_RegisterGlobalTearDown(cut_GlobalTear instance) {
     cut_globalTearDown = instance;
 }
 
-CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
+CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, char **argv) {
     static const char *help = "--help";
     static const char *timeout = "--timeout";
     static const char *noFork = "--no-fork";
@@ -288,50 +243,52 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
     static const char *subtest = "--subtest";
     static const char *exactTest = "--test";
     static const char *shortPath = "--short-path";
-    cut_arguments.help = 0;
-    cut_arguments.timeout = CUT_TIMEOUT;
-    cut_arguments.noFork = CUT_NO_FORK;
-    cut_arguments.noColor = CUT_NO_COLOR;
-    cut_arguments.output = NULL;
-    cut_arguments.matchSize = 0;
-    cut_arguments.match = NULL;
-    cut_arguments.testId = -1;
-    cut_arguments.subtestId = -1;
-    cut_arguments.selfName = argv[0];
-    cut_arguments.shortPath = -1;
+    static const char *format = "--format";
+    arguments->help = 0;
+    arguments->timeout = CUT_TIMEOUT;
+    arguments->noFork = CUT_NO_FORK;
+    arguments->noColor = CUT_NO_COLOR;
+    arguments->output = NULL;
+    arguments->matchSize = 0;
+    arguments->match = NULL;
+    arguments->testId = -1;
+    arguments->subtestId = -1;
+    arguments->selfName = argv[0];
+    arguments->shortPath = -1;
+    arguments->format = CUT_FORMAT;
 
     for (int i = 1; i < argc; ++i) {
         if (strncmp(argv[i], "--", 2)) {
-            ++cut_arguments.matchSize;
+            ++arguments->matchSize;
             continue;
         }
         if (!strcmp(help, argv[i])) {
-            cut_arguments.help = 1;
+            arguments->help = 1;
             continue;
         }
         if (!strcmp(timeout, argv[i])) {
             ++i;
-            if (i >= argc || !sscanf(argv[i], "%u", &cut_arguments.timeout))
+            if (i >= argc || !sscanf(argv[i], "%u", &arguments->timeout))
                 cut_ErrorExit("option %s requires numeric argument", timeout);
             continue;
         }
         if (!strcmp(noFork, argv[i])) {
-            cut_arguments.noFork = 1;
+            arguments->noFork = 1;
             continue;
         }
         if (!strcmp(doFork, argv[i])) {
-            cut_arguments.noFork = 0;
+            arguments->noFork = 0;
             continue;
         }
         if (!strcmp(noColor, argv[i])) {
-            cut_arguments.noColor = 1;
+            arguments->noColor = 1;
             continue;
         }
         if (!strcmp(output, argv[i])) {
             ++i;
             if (i < argc) {
-                cut_arguments.output = argv[i];
-                cut_arguments.noColor = 1;
+                arguments->output = argv[i];
+                arguments->noColor = 1;
             }
             else {
                 cut_ErrorExit("option %s requires string argument", output);
@@ -340,28 +297,38 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
         }
         if (!strcmp(exactTest, argv[i])) {
             ++i;
-            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.testId))
+            if (i >= argc || !sscanf(argv[i], "%d", &arguments->testId))
                 cut_ErrorExit("option %s requires numeric argument %d %d", exactTest, i, argc);
             continue;
         }
         if (!strcmp(subtest, argv[i])) {
             ++i;
-            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.subtestId))
+            if (i >= argc || !sscanf(argv[i], "%d", &arguments->subtestId))
                 cut_ErrorExit("option %s requires numeric argument", subtest);
             continue;
         }
         if (!strcmp(shortPath, argv[i])) {
             ++i;
-            if (i >= argc || !sscanf(argv[i], "%d", &cut_arguments.shortPath))
+            if (i >= argc || !sscanf(argv[i], "%d", &arguments->shortPath))
                 cut_ErrorExit("option %s requires numeric argument", shortPath);
+            if (arguments->shortPath > CUT_MAX_PATH)
+                arguments->shortPath = CUT_MAX_PATH;
+            continue;
+        }
+        if (!strcmp(format, argv[i])) {
+            ++i;
+            if (i < argc)
+                arguments->format = argv[i];
+            else
+                cut_ErrorExit("option %s requires string argument", format);
             continue;
         }
         cut_ErrorExit("option %s is not recognized", argv[i]);
     }
-    if (!cut_arguments.matchSize)
+    if (!arguments->matchSize)
         return;
-    cut_arguments.match = (char **)malloc(cut_arguments.matchSize * sizeof(char *));
-    if (!cut_arguments.match)
+    arguments->match = (char **)malloc(arguments->matchSize * sizeof(char *));
+    if (!arguments->match)
         cut_ErrorExit("cannot allocate memory for list of selected tests");
     int index = 0;
     for (int i = 1; i < argc; ++i) {
@@ -374,11 +341,11 @@ CUT_PRIVATE void cut_ParseArguments(int argc, char **argv) {
             }
             continue;
         }
-        cut_arguments.match[index++] = argv[i];
+        arguments->match[index++] = argv[i];
     }
 }
 
-CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info) {
+CUT_PRIVATE void cut_ClearInfo(struct cut_Info *info) {
     while (info) {
         struct cut_Info *current = info;
         info = info->next;
@@ -388,17 +355,17 @@ CUT_PRIVATE void cut_CleanInfo(struct cut_Info *info) {
     }
 }
 
-CUT_PRIVATE void cut_CleanMemory(struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_ClearMemory(struct cut_UnitResult *result) {
     free(result->name);
     free(result->file);
     free(result->statement);
     free(result->exceptionType);
     free(result->exceptionMessage);
-    cut_CleanInfo(result->debug);
-    cut_CleanInfo(result->check);
+    cut_ClearInfo(result->debug);
+    cut_ClearInfo(result->check);
 }
 
-CUT_PRIVATE int cut_Help() {
+CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments) {
     const char *text = ""
     "Run as %s [options] [test names]\n"
     "\n"
@@ -419,7 +386,7 @@ CUT_PRIVATE int cut_Help() {
     "at least one of the filters is a substring of the test name."
     "";
 
-    fprintf(cut_output, text, cut_arguments.selfName);
+    fprintf(stderr, text, arguments->selfName);
     return 0;
 }
 

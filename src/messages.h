@@ -17,7 +17,7 @@ CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
     return r != -1;
 }
 
-CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
+CUT_PRIVATE int cut_ReadMessage(int pipeRead, struct cut_Fragment *message) {
     cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
 
     message->serialized = NULL;
@@ -34,7 +34,7 @@ CUT_PRIVATE int cut_ReadMessage(struct cut_Fragment *message) {
             if (!message->serialized)
                 cut_FatalExit("cannot allocate memory for reading a message");
         }
-        r = cut_Read(cut_pipeRead, message->serialized + processed, (size_t)toRead);
+        r = cut_Read(pipeRead, message->serialized + processed, (size_t)toRead);
     }
     processed = cut_FragmentReceiveProcessed(&status);
     if (processed < message->serializedLength) {
@@ -49,7 +49,7 @@ CUT_PRIVATE void cut_ResetLocalMessage() {
 }
 
 CUT_PRIVATE int cut_SendLocalMessage(struct cut_Fragment *message) {
-    if (!cut_arguments.noFork)
+    if (!cut_noFork)
         return cut_SendMessage(message);
     if (message->serializedLength + cut_localMessageSize > CUT_MAX_LOCAL_MESSAGE_LENGTH)
         return 0;
@@ -68,7 +68,7 @@ CUT_PRIVATE void cut_SendOK(int counter) {
 
     cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize ok:fragment");
     cut_SendLocalMessage(&message) || cut_FatalExit("cannot send ok:message");
-    cut_FragmentClean(&message);
+    cut_FragmentClear(&message);
 }
 
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...) {
@@ -94,7 +94,7 @@ void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...) {
     cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize debug:fragment");
 
     cut_SendLocalMessage(&message) || cut_FatalExit("cannot send debug:message");
-    cut_FragmentClean(&message);
+    cut_FragmentClear(&message);
     free(buffer);
 }
 
@@ -110,7 +110,7 @@ void cut_Stop(const char *text, const char *file, size_t line) {
     cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize stop:fragment");
 
     cut_SendLocalMessage(&message) || cut_FatalExit("cannot send stop:message");
-    cut_FragmentClean(&message);
+    cut_FragmentClear(&message);
     longjmp(cut_executionPoint, 1);
 }
 
@@ -126,7 +126,7 @@ void cut_Check(const char *text, const char *file, size_t line) {
     cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize check:fragment");
 
     cut_SendLocalMessage(&message) || cut_FatalExit("cannot send check:message");
-    cut_FragmentClean(&message);
+    cut_FragmentClear(&message);
 }
 
 CUT_PRIVATE void cut_StopException(const char *type, const char *text) {
@@ -137,7 +137,7 @@ CUT_PRIVATE void cut_StopException(const char *type, const char *text) {
     cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize exception:fragment");
 
     cut_SendLocalMessage(&message) || cut_FatalExit("cannot send exception:message");
-    cut_FragmentClean(&message);
+    cut_FragmentClear(&message);
 }
 
 CUT_PRIVATE void cut_Timeouted() {
@@ -158,12 +158,12 @@ void cut_Subtest(int number, const char *name) {
     cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize subtest:fragment");
 
     cut_SendLocalMessage(&message) || cut_FatalExit("cannot send subtest:message");
-    cut_FragmentClean(&message);
+    cut_FragmentClear(&message);
 }
 
-CUT_PRIVATE int cut_ReadLocalMessage(struct cut_Fragment *message) {
+CUT_PRIVATE int cut_ReadLocalMessage(int pipeRead, struct cut_Fragment *message) {
     if (!cut_localMessageSize)
-        return cut_ReadMessage(message);
+        return cut_ReadMessage(pipeRead, message);
     // first read
     if (!cut_localMessageCursor)
         cut_localMessageCursor = cut_localMessage;
@@ -194,13 +194,13 @@ CUT_PRIVATE int cut_ReadLocalMessage(struct cut_Fragment *message) {
     return toRead != -1;
 }
 
-CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
+CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
     int repeat;
     do {
         repeat = 0;
         struct cut_Fragment message;
         cut_FragmentInit(&message, cut_NO_TYPE);
-        cut_ReadLocalMessage(&message) || cut_FatalExit("cannot read message");
+        cut_ReadLocalMessage(pipeRead, &message) || cut_FatalExit("cannot read message");
         cut_FragmentDeserialize(&message) || cut_FatalExit("cannot deserialize message");
 
         switch (message.id) {
@@ -226,6 +226,8 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
         case cut_MESSAGE_OK:
             message.sliceCount == 1 || cut_FatalExit("invalid ok:message format");
             result->subtests = *(int *)cut_FragmentGet(&message, 0, NULL);
+            if (result->status == cut_RESULT_UNKNOWN)
+                result->status = cut_RESULT_OK;
             break;
         case cut_MESSAGE_FAIL:
             message.sliceCount == 3 || cut_FatalExit("invalid fail:message format");
@@ -245,8 +247,7 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
             ) || cut_FatalExit("cannot set exception result");
             break;
         case cut_MESSAGE_TIMEOUT:
-            result->timeouted = 1;
-            result->failed = 1;
+            result->status = cut_RESULT_TIMED_OUT;
             break;
         case cut_MESSAGE_CHECK:
             message.sliceCount == 3 || cut_FatalExit("invalid check:message format");
@@ -256,11 +257,11 @@ CUT_PRIVATE void *cut_PipeReader(struct cut_UnitResult *result) {
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
             ) || cut_FatalExit("cannot add check");
-            result->failed = 1;
+            result->status = cut_RESULT_FAILED;
             repeat = 1;
             break;
         }
-        cut_FragmentClean(&message);
+        cut_FragmentClear(&message);
     } while (repeat);
     return NULL;
 }
@@ -314,7 +315,7 @@ CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result,
     result->line = line;
     strcpy(result->file, file);
     strcpy(result->statement, text);
-    result->failed = 1;
+    result->status = cut_RESULT_FAILED;
     return 1;
 }
 
@@ -330,7 +331,7 @@ CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result,
     }
     strcpy(result->exceptionType, type);
     strcpy(result->exceptionMessage, text);
-    result->failed = 1;
+    result->status = cut_RESULT_FAILED;
     return 1;
 }
 

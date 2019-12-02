@@ -44,5 +44,6 @@ TEST(sesty) {
 }
 
 TEST(osm) {
+    DEBUG_MSG("sedmy test neni");
     exit(10);
 }

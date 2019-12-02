@@ -89,7 +89,7 @@ TEST(second) {
         DEBUG_MSG("The magic value is %d", value);
         ASSERT(value > SUBTEST_NO);
     }
-    cleanMagic();
+    clearMagic();
 }
 
 TEST(third) {

@@ -25,19 +25,25 @@ CUT_PRIVATE int cut_CreateTemporaryFile(FILE **file) {
 
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
+    cut_CreateTemporaryFile(&cut_stdin) || cut_FatalExit("cannot open temporary file");
     cut_CreateTemporaryFile(&cut_stdout) || cut_FatalExit("cannot open temporary file");
     cut_CreateTemporaryFile(&cut_stderr) || cut_FatalExit("cannot open temporary file");
+    cut_originalStdIn = _dup(0);
     cut_originalStdOut = _dup(1);
     cut_originalStdErr = _dup(2);
+    _dup2(_fileno(cut_stdin), 0);
     _dup2(_fileno(cut_stdout), 1);
     _dup2(_fileno(cut_stderr), 2);
 }
 
 CUT_PRIVATE void cut_ResumeIO() {
+    fclose(cut_stdin) != -1 || cut_FatalExit("cannot close file");
     fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
     fclose(cut_stderr) != -1 || cut_FatalExit("cannot close file");
+    _close(0) != -1 || cut_FatalExit("cannot close file");
     _close(1) != -1 || cut_FatalExit("cannot close file");
     _close(2) != -1 || cut_FatalExit("cannot close file");
+    _dup2(cut_originalStdIn, 0);
     _dup2(cut_originalStdOut, 1);
     _dup2(cut_originalStdErr, 2);
 
@@ -57,8 +63,8 @@ CUT_PRIVATE void NTAPI cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(BOO
     ExitProcess(cut_NORMAL_EXIT);
 }
 
-CUT_PRIVATE int cut_PreRun() {
-    if (!cut_arguments.noFork && cut_arguments.testId < 0) {
+CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
+    if (!arguments->noFork && arguments->testId < 0) {
         // create a group of processes to be able to kill unit when parent dies
 		cut_jobGroup = CreateJobObject(NULL, NULL);
         if (!cut_jobGroup)
@@ -67,21 +73,21 @@ CUT_PRIVATE int cut_PreRun() {
         jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
         SetInformationJobObject(cut_jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||cut_FatalExit("cannot SetInformationJobObject");
     }
-    if (cut_arguments.testId < 0)
+    if (arguments->testId < 0)
         return 0;
 
     SetErrorMode(SEM_NOGPFAULTERRORBOX);
 
     HANDLE timer = NULL;
-    if (cut_arguments.timeout) {
+    if (arguments->timeout) {
         CreateTimerQueueTimer(&timer, NULL, cut_TimerCallback, NULL, 
-                              cut_arguments.timeout * 1000, 0, WT_EXECUTEONLYONCE) || cut_FatalExit("cannot create timer");
+                              arguments->timeout * 1000, 0, WT_EXECUTEONLYONCE) || cut_FatalExit("cannot create timer");
     }
 
     cut_pipeWrite = _dup(1);
     _setmode(cut_pipeWrite, _O_BINARY);
 
-    cut_ExceptionBypass(cut_arguments.testId, cut_arguments.subtestId);
+    cut_ExceptionBypass(arguments->testId, arguments->subtestId);
 
     _close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
 
@@ -93,7 +99,7 @@ CUT_PRIVATE int cut_PreRun() {
 }
 
 
-CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest, struct cut_UnitResult *result) {
 
     SECURITY_ATTRIBUTES saAttr;
     saAttr.nLength = sizeof(saAttr);
@@ -116,12 +122,13 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     startInfo.hStdOutput = childOutWrite;
 
     const char *fmtString = "\"%s\" --test %i --subtest %i --timeout %i";
-    int length = snprintf(NULL, 0, fmtString, cut_arguments.selfName, testId, subtest,
-                          cut_arguments.timeout);
+    int length = snprintf(NULL, 0, fmtString, shepherd->arguments->selfName, testId, subtest,
+                          shepherd->arguments->timeout);
     char *command = (char *)malloc(length + 1);
-    sprintf(command, fmtString, cut_arguments.selfName, testId, subtest, cut_arguments.timeout);
+    sprintf(command, fmtString, shepherd->arguments->selfName, testId, subtest,
+            shepherd->arguments->timeout);
             
-    CreateProcessA(cut_arguments.selfName,
+    CreateProcessA(shepherd->arguments->selfName,
                    command,
                    NULL,
                    NULL,
@@ -137,8 +144,8 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
     ResumeThread(procInfo.hThread) == 1 || cut_FatalExit("cannot resume thread");
 	CloseHandle(childOutWrite) || cut_FatalExit("cannot close handle");
 
-    cut_pipeRead = _open_osfhandle((intptr_t)childOutRead, 0);
-    cut_PipeReader(result);
+    int pipeRead = _open_osfhandle((intptr_t)childOutRead, 0);
+    cut_PipeReader(pipeRead, result);
 
     WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || cut_FatalExit("cannot wait for single object");
     DWORD childResult;
@@ -148,9 +155,10 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
 
     result->returnCode = childResult;
     result->signal = 0;
-    result->failed |= result->returnCode;
+    if (result->returnCode)
+        result->status = cut_RESULT_RETURNED_NON_ZERO;
 
-    _close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
+    _close(pipeRead) != -1 || cut_FatalExit("cannot close file");
 }
 
 CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
@@ -189,7 +197,7 @@ cleanup:
     return result;
 }
 
-CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
+CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text) {
     HANDLE stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO info;
     WORD attributes = 0;
@@ -210,7 +218,7 @@ CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
     }
     if (attributes)
         SetConsoleTextAttribute(stdOut, attributes);
-    int rv = fprintf(cut_output, "%s", text);
+    int rv = fprintf(output, "%s", text);
     if (attributes)
         SetConsoleTextAttribute(stdOut, info.wAttributes);
     return rv;
