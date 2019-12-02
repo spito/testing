@@ -53,7 +53,7 @@ CUT_PRIVATE void cut_FragmentInit(struct cut_Fragment *fragments, int id) {
     fragments->lastSlice = NULL;
 }
 
-CUT_PRIVATE void cut_FragmentClean(struct cut_Fragment *fragments) {
+CUT_PRIVATE void cut_FragmentClear(struct cut_Fragment *fragments) {
     if (!fragments)
         return;
     if (fragments->serialized)
