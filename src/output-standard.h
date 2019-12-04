@@ -38,7 +38,7 @@ CUT_PRIVATE void cut_StartSubTests_std(struct cut_Shepherd *shepherd, int testId
 }
 
 
-CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char *indent, const struct cut_UnitResult *result) {
+CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char *indent, int testId, const struct cut_UnitResult *result) {
     int extended = 0;
     for (const struct cut_Info *current = result->check; current; current = current->next) {
         fprintf(shepherd->output, "%scheck '%s' (%s:%d)\n", indent, current->message,
@@ -47,7 +47,7 @@ CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char 
     }
     switch (result->status) {
     case cut_RESULT_TIMED_OUT:
-        fprintf(shepherd->output, "%stimed out (%d s)\n", indent, shepherd->arguments->timeout);
+        fprintf(shepherd->output, "%stimed out (%d s)\n", indent, cut_unitTests.tests[testId].settings->timeout);
         extended = 1;
         break;
     case cut_RESULT_SIGNALLED:
@@ -113,7 +113,7 @@ CUT_PRIVATE void cut_EndSubTest_std(struct cut_Shepherd *shepherd, int testId, i
         cut_PrintColorized(shepherd->output, color, status);
 
     putc('\n', shepherd->output);
-    if (cut_PrintDetailResult(shepherd, indent, result))
+    if (cut_PrintDetailResult(shepherd, indent, testId, result))
         putc('\n', shepherd->output);
     fflush(shepherd->output);
 
@@ -137,7 +137,7 @@ CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId
         cut_PrintColorized(shepherd->output, color, status);
 
     putc('\n', shepherd->output);
-    extended = cut_PrintDetailResult(shepherd, indent, result);
+    extended = cut_PrintDetailResult(shepherd, indent, testId, result);
     if (extended)
         putc('\n', shepherd->output);
     fflush(shepherd->output);
@@ -145,6 +145,10 @@ CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId
     switch (result->status) {
     case cut_RESULT_OK:
         ++shepherd->succeeded;
+        shepherd->points += cut_unitTests.tests[testId].settings->points;
+        break;
+    case cut_RESULT_SUPPRESSED:
+        ++shepherd->suppressed;
         break;
     case cut_RESULT_SKIPPED:
         ++shepherd->skipped;
@@ -187,13 +191,18 @@ CUT_PRIVATE void cut_Finalize_std(struct cut_Shepherd *shepherd) {
             "  tests:        %3i\n"
             "  succeeded:    %3i\n"
             "  filtered out: %3i\n"
+            "  suppressed:   %3i\n"
             "  skipped:      %3i\n"
-            "  failed:       %3i\n",
+            "  failed:       %3i\n"
+            "\n"
+            "Points:         %6.2f\n",
             cut_unitTests.size,
             shepherd->succeeded,
             shepherd->filteredOut,
+            shepherd->suppressed,
             shepherd->skipped,
-            shepherd->failed);
+            shepherd->failed,
+            shepherd->points);
 }
 
 CUT_PRIVATE void cut_Clear_std(struct cut_Shepherd *shepherd) {

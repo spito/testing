@@ -22,13 +22,18 @@ Should not harm elsewhere.
 # define REPEATED_SUBTEST(name, count) if (0)
 # define SUBTEST_NO 0
 # define DEBUG_MSG(...) (void)0
+# define TEST_POINTS(n) 
+# define TEST_TIMEOUT(n) 
+# define TEST_SUPPRESS 
+# define TEST_NEEDS(...)
+# define TEST_SETTINGS(...)
 
 #else
 
 # define CUT_PRIVATE static
 
-# if !defined(CUT_TIMEOUT)
-#  define CUT_TIMEOUT 3
+# if !defined(CUT_DEFAULT_TIMEOUT)
+#  define CUT_DEFAULT_TIMEOUT 3
 # endif
 
 # if !defined(CUT_NO_FORK)
@@ -103,10 +108,33 @@ Should not harm elsewhere.
     void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
 */
 
-# define TEST(name)                                                             \
+# define TEST_POINTS(n) .points = n
+# define TEST_TIMEOUT(n) .timeout = n, .timeoutDefined = 1
+# define TEST_SUPPRESS .suppress = 1
+# define TEST_NEEDS(...) { "", ## __VA_ARGS__ }
+# define TEST_SETTINGS(...) {"", ## __VA_ARGS__ }
+
+# define CUT_GET_NEEDS2(dummy, settings, needs, ...) needs
+# define CUT_GET_NEEDS(dummy, ...) CUT_GET_NEEDS2(dummy, ## __VA_ARGS__, {""}, {""})
+# define CUT_GET_SETTINGS2(dummy, settings, needs, ...) settings
+# define CUT_GET_SETTINGS(dummy, ...) CUT_GET_SETTINGS2(dummy, ## __VA_ARGS__, {""}, {""})
+
+# define TEST(name, ...)                                                        \
     void cut_instance_ ## name(int *, int);                                     \
     CUT_CONSTRUCTOR(cut_Register ## name) {                                     \
-        cut_Register(cut_instance_ ## name, #name,  __FILE__, __LINE__);                                       \
+        static struct {                                                         \
+            const char *dummy;                                                  \
+            int timeout;                                                        \
+            int timeoutDefined;                                                 \
+            int suppress;                                                       \
+            double points;                                                      \
+            const char **needs;                                                 \
+            size_t needSize;                                                    \
+        } settings = CUT_GET_SETTINGS(dummy, ## __VA_ARGS__);                   \
+        static const char *needs[] = CUT_GET_NEEDS(dummy, ## __VA_ARGS__);      \
+        settings.needSize = sizeof(needs)/sizeof(*needs);                       \
+        settings.needs = needs;                                                 \
+        cut_Register(cut_instance_ ## name, #name,  __FILE__, __LINE__, &settings);        \
     }                                                                           \
     void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
 
@@ -145,7 +173,7 @@ extern "C" {
 
 typedef void(*cut_Instance)(int *, int);
 typedef void(*cut_GlobalTear)();
-void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, void *settings);
 void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
 void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
@@ -206,7 +234,8 @@ CUT_NORETURN int cut_ErrorExit(const char *reason, ...) {
 }
 
 
-void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line) {
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, void *_settings) {
+    struct cut_Settings *settings = (struct cut_Settings *)_settings;
     if (cut_unitTests.size == cut_unitTests.capacity) {
         cut_unitTests.capacity += 16;
         cut_unitTests.tests = (struct cut_UnitTest *)realloc(cut_unitTests.tests,
@@ -218,6 +247,7 @@ void cut_Register(cut_Instance instance, const char *name, const char *file, siz
     cut_unitTests.tests[cut_unitTests.size].name = name;
     cut_unitTests.tests[cut_unitTests.size].file = file;
     cut_unitTests.tests[cut_unitTests.size].line = line;
+    cut_unitTests.tests[cut_unitTests.size].settings = settings;
     ++cut_unitTests.size;
 }
 
@@ -247,7 +277,8 @@ CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, c
     static const char *format = "--format";
     arguments->help = 0;
     arguments->list = 0;
-    arguments->timeout = CUT_TIMEOUT;
+    arguments->timeout = CUT_DEFAULT_TIMEOUT;
+    arguments->timeoutDefined = 0;
     arguments->noFork = CUT_NO_FORK;
     arguments->noColor = CUT_NO_COLOR;
     arguments->output = NULL;
@@ -276,6 +307,7 @@ CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, c
             ++i;
             if (i >= argc || !sscanf(argv[i], "%u", &arguments->timeout))
                 cut_ErrorExit("option %s requires numeric argument", timeout);
+            arguments->timeoutDefined = 1;
             continue;
         }
         if (!strcmp(noFork, argv[i])) {

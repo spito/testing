@@ -14,7 +14,7 @@ struct cut_OutputData_json {
     struct cut_TestAttributes_json *attributes;
 };
 
-CUT_PRIVATE void cut_PrintInfo_json(struct cut_Shepherd *shepherd, const struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_PrintInfo_json(struct cut_Shepherd *shepherd, int testId, const struct cut_UnitResult *result) {
     enum cut_Colors color;
     fprintf(shepherd->output, ", \"status\": \"%s\"", cut_GetStatus(result, &color));
     if (result->check) {
@@ -30,7 +30,7 @@ CUT_PRIVATE void cut_PrintInfo_json(struct cut_Shepherd *shepherd, const struct 
     }
     switch (result->status) {
     case cut_RESULT_TIMED_OUT:
-        fprintf(shepherd->output, ", \"timeout\": %d", shepherd->arguments->timeout);
+        fprintf(shepherd->output, ", \"timeout\": %d", cut_unitTests.tests[testId].settings->timeout);
         break;
     case cut_RESULT_SIGNALLED:
         fprintf(shepherd->output, ", \"signal\": \"%s\"", cut_Signal(result->signal));
@@ -81,7 +81,7 @@ CUT_PRIVATE void cut_EndSubTest_json(struct cut_Shepherd *shepherd, int testId, 
     if (1 < subtest)
         fputc(',', shepherd->output);
     fprintf(shepherd->output, "{\"name\": \"%s\", \"iteration\": %d", result->name, result->number);
-    cut_PrintInfo_json(shepherd, result);
+    cut_PrintInfo_json(shepherd, testId, result);
     fputc('}', shepherd->output);
     fflush(shepherd->output);
 }
@@ -96,8 +96,10 @@ CUT_PRIVATE void cut_EndTest_json(struct cut_Shepherd *shepherd, int testId, con
         result = &dummy;
         fprintf(shepherd->output, "]");
     }
-    cut_PrintInfo_json(shepherd, result);
-    fprintf(shepherd->output, "}");
+    cut_PrintInfo_json(shepherd, testId, result);
+    fprintf(shepherd->output, ", \"points\":%0.2f}", result->status == cut_RESULT_OK
+            ? cut_unitTests.tests[testId].settings->points
+            : 0.0);
     fflush(shepherd->output);
 }
 
@@ -110,6 +112,20 @@ CUT_PRIVATE void cut_Clear_json(struct cut_Shepherd *shepherd) {
     struct cut_OutputData_json *data = (struct cut_OutputData_json *)shepherd->data;
     free(data->attributes);
     free(data);
+}
+
+CUT_PRIVATE void cut_ListTests_json(const struct cut_Shepherd *shepherd) {
+    fprintf(shepherd->output, "[");
+    for (int i = 0; i <  cut_unitTests.size; ++i) {
+        if (i)
+            putc(',', shepherd->output);
+        fprintf(shepherd->output, "{\"name\":\"%s\",\"needs\":[],\"file\":\"%s\",\"line\":%d,\"points\":%0.2f}",
+                cut_unitTests.tests[i].name,
+                cut_unitTests.tests[i].file,
+                cut_unitTests.tests[i].line,
+                cut_unitTests.tests[i].settings->points);
+    }
+    fputs("]", shepherd->output);
 }
 
 
@@ -126,6 +142,7 @@ CUT_PRIVATE void cut_InitOutput_json(struct cut_Shepherd *shepherd) {
         cut_FatalExit("cannot allocate memory for output");
     memset(data->attributes, 0, sizeof(struct cut_TestAttributes_json) * cut_unitTests.size);
 
+    shepherd->listTests = cut_ListTests_json;
     shepherd->startTest = cut_StartTest_json;
     shepherd->startSubTests = cut_StartSubTests_json;
     shepherd->endSubTest = cut_EndSubTest_json;

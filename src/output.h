@@ -12,6 +12,7 @@
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color) {
     static const char *unknown = "UNKNOWN";
     static const char *ok = "OK";
+    static const char *suppressed = "SUPPRESSED";
     static const char *filteredOut = "FILTERED OUT";
     static const char *returnedNonZero = "NON ZERO";
     static const char *signalled = "SIGNALLED";
@@ -24,6 +25,9 @@ CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum 
     case cut_RESULT_OK:
         *color = cut_GREEN_COLOR;
         return ok;
+    case cut_RESULT_SUPPRESSED:
+        *color = cut_YELLOW_COLOR;
+        return suppressed;
     case cut_RESULT_FILTERED_OUT:
         *color = cut_GREEN_COLOR;
         return filteredOut;

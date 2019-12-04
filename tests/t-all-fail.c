@@ -32,7 +32,7 @@ TEST(ctvrty) {
     DEBUG_MSG("ale tohle uz ne :(");
 }
 
-TEST(paty) {
+TEST(paty, TEST_SETTINGS(TEST_TIMEOUT(1))) {
     while(1);
 }
 

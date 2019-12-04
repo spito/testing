@@ -78,7 +78,9 @@ CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd) {
 
         shepherd->startTest(shepherd, item->testId);
 
-        if (cut_FilterOutUnit(shepherd->arguments, item->testId))
+        if (cut_unitTests.tests[item->testId].settings->suppress)
+            result.status = cut_RESULT_SUPPRESSED;
+        else if (cut_FilterOutUnit(shepherd->arguments, item->testId))
             result.status = cut_RESULT_FILTERED_OUT;
         else
             cut_RunUnitTest(shepherd, &result, item->testId);
@@ -145,8 +147,13 @@ CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs) {
 }
 
 CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
-    for (int testId = 0; testId < cut_unitTests.size; testId++)
+    for (int testId = 0; testId < cut_unitTests.size; testId++) {
+        if (shepherd->arguments->timeoutDefined || !cut_unitTests.tests[testId].settings->timeoutDefined) {
+            cut_unitTests.tests[testId].settings->timeout = shepherd->arguments->timeout;
+        }
+
         cut_QueuePushTest(shepherd->queuedTests, testId);
+    }
 }
 
 CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cut_Arguments *arguments, struct cut_Queue *queue) {
@@ -155,9 +162,11 @@ CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cu
     shepherd->queuedTests = queue;
     shepherd->executed = 0;
     shepherd->succeeded = 0;
+    shepherd->suppressed = 0;
     shepherd->filteredOut = 0;
     shepherd->skipped = 0;
     shepherd->failed = 0;
+    shepherd->points = 0;
     shepherd->listTests = (void (*)(const struct cut_Shepherd *)) cut_ShepherdNoop;
     shepherd->startTest = (void (*)(struct cut_Shepherd *, int)) cut_ShepherdNoop;
     shepherd->startSubTests = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;

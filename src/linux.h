@@ -81,12 +81,13 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
         close(pipeRead) != -1 || cut_FatalExit("cannot close file");
         cut_pipeWrite = pipeWrite;
 
-        if (shepherd->arguments->timeout) {
+        int timeout = cut_unitTests.tests[testId].settings->timeout;
+        if (timeout) {
             struct sigaction sa;
             memset(&sa, 0, sizeof(sa));
             sa.sa_handler = cut_SigAlrm;
             sigaction(SIGALRM, &sa, NULL);
-            alarm(shepherd->arguments->timeout);
+            alarm(timeout);
         }
         cut_ExceptionBypass(testId, subtest);
 
