@@ -26,6 +26,7 @@ enum cut_MessageType {
 enum cut_ResultStatus {
     cut_RESULT_UNKNOWN,
     cut_RESULT_OK,
+    cut_RESULT_SUPPRESSED,
     cut_RESULT_FAILED,
     cut_RESULT_RETURNED_NON_ZERO,
     cut_RESULT_SIGNALLED,
@@ -50,11 +51,22 @@ struct cut_UnitResult {
     struct cut_Info *check;
 };
 
+struct cut_Settings {
+    const char *dummy;
+    int timeout;
+    int timeoutDefined;
+    int suppress;
+    double points;
+    const char **needs;
+    size_t needSize;
+};
+
 struct cut_UnitTest {
     cut_Instance instance;
     const char *name;
     const char *file;
     size_t line;
+    struct cut_Settings *settings;
 };
 
 struct cut_UnitTestArray {
@@ -67,6 +79,7 @@ struct cut_Arguments {
     int help;
     int list;
     unsigned timeout;
+    int timeoutDefined;
     int noFork;
     int noColor;
     char *output;
@@ -111,9 +124,12 @@ struct cut_Shepherd {
     FILE *output;
     int executed;
     int succeeded;
+    int suppressed;
     int failed;
     int filteredOut;
     int skipped;
+
+    double points;
 
     int pipeWrite;
     int pipeRead;
@@ -136,7 +152,7 @@ struct cut_Shepherd {
 
 typedef void(*cut_Instance)(int *, int);
 typedef void(*cut_GlobalTear)();
-void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, void *settings);
 void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
 void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
