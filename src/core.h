@@ -235,6 +235,7 @@ void cut_RegisterGlobalTearDown(cut_GlobalTear instance) {
 
 CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, char **argv) {
     static const char *help = "--help";
+    static const char *list = "--list";
     static const char *timeout = "--timeout";
     static const char *noFork = "--no-fork";
     static const char *doFork = "--fork";
@@ -245,6 +246,7 @@ CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, c
     static const char *shortPath = "--short-path";
     static const char *format = "--format";
     arguments->help = 0;
+    arguments->list = 0;
     arguments->timeout = CUT_TIMEOUT;
     arguments->noFork = CUT_NO_FORK;
     arguments->noColor = CUT_NO_COLOR;
@@ -264,6 +266,10 @@ CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, c
         }
         if (!strcmp(help, argv[i])) {
             arguments->help = 1;
+            continue;
+        }
+        if (!strcmp(list, argv[i])) {
+            arguments->list = 1;
             continue;
         }
         if (!strcmp(timeout, argv[i])) {
@@ -355,7 +361,7 @@ CUT_PRIVATE void cut_ClearInfo(struct cut_Info *info) {
     }
 }
 
-CUT_PRIVATE void cut_ClearMemory(struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_ClearUnitResult(struct cut_UnitResult *result) {
     free(result->name);
     free(result->file);
     free(result->statement);
@@ -371,6 +377,10 @@ CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments) {
     "\n"
     "Options:\n"
     "\t--help            Print out this help.\n"
+    "\t--list            Print list of all tests. Respect --format.\n"
+    "\t--format <type>   Use different kinds of output formats:\n"
+    "\t         json     use json format\n"
+    "\t         <?>      use standard terminal friendly format\n"
     "\t--timeout <N>     Set timeout of each test in seconds. 0 for no timeout.\n"
     "\t--no-fork         Disable forking. Timeout is turned off.\n"
     "\t--fork            Force forking. Usefull during debugging with fork enabled.\n"
@@ -387,6 +397,11 @@ CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments) {
     "";
 
     fprintf(stderr, text, arguments->selfName);
+    return 0;
+}
+
+CUT_PRIVATE int cut_List(const struct cut_Shepherd *shepherd) {
+    shepherd->listTests(shepherd);
     return 0;
 }
 

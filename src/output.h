@@ -109,7 +109,7 @@ CUT_PRIVATE const char *cut_ReturnCode(int returnCode) {
     }
 }
 
-CUT_PRIVATE void cut_OutputNoop(struct cut_Shepherd *shepherd, ...) {
+CUT_PRIVATE void cut_ShepherdNoop(struct cut_Shepherd *shepherd, ...) {
 }
 
 
