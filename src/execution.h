@@ -53,19 +53,6 @@ cleanup:
 # endif
 
 
-CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, int testId) {
-    if (arguments->testId >= 0)
-        return testId != arguments->testId;
-    if (!arguments->matchSize)
-        return 0;
-    const char *name = cut_unitTests.tests[testId].name;
-    for (int i = 0; i < arguments->matchSize; ++i) {
-        if (strstr(name, arguments->match[i]))
-            return 0;
-    }
-    return 1;
-}
-
 CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, int testId, int subtest,
                                      struct cut_UnitResult *result) {
     cut_ExceptionBypass(testId, subtest);
@@ -75,24 +62,12 @@ CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, int testId, 
     result->signal = 0;
 }
 
-CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs) {
-    struct cut_UnitTest *lhs = (struct cut_UnitTest *)_lhs;
-    struct cut_UnitTest *rhs = (struct cut_UnitTest *)_rhs;
-
-    int result = strcmp(lhs->file, rhs->file);
-    if (!result)
-        result = lhs->line <= rhs->line ? -1 : 1;
-    return result;
-}
-
-
 CUT_PRIVATE void cut_RunUnitTest(struct cut_Shepherd *shepherd, struct cut_UnitResult *result, int testId) {
     shepherd->unitRunner(shepherd, testId, 0, result);
 
     if (result->subtests > 0 && result->status == cut_RESULT_OK)
         cut_RunUnitSubTests(shepherd, testId, result->subtests);
 }
-
 
 CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd) {
 
@@ -112,9 +87,9 @@ CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd) {
         shepherd->endTest(shepherd, item->testId, &result);
 
         cut_MeltQueueItem(shepherd->queuedTests, item);
+        cut_ClearUnitResult(&result);
     }
 }
-
 
 CUT_PRIVATE void cut_RunUnitSubTest(struct cut_Shepherd *shepherd, int testId, int subtest) {
     struct cut_UnitResult result;
@@ -124,9 +99,8 @@ CUT_PRIVATE void cut_RunUnitSubTest(struct cut_Shepherd *shepherd, int testId, i
     shepherd->unitRunner(shepherd, testId, subtest, &result);
     shepherd->endSubTest(shepherd, testId, subtest, &result);
 
-    cut_ClearMemory(&result);
+    cut_ClearUnitResult(&result);
 }
-
 
 CUT_PRIVATE void cut_RunUnitSubTests(struct cut_Shepherd *shepherd, int testId, int subtests) {
 
@@ -147,11 +121,33 @@ CUT_PRIVATE void cut_RunUnitSubTests(struct cut_Shepherd *shepherd, int testId, 
 }
 
 
+CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, int testId) {
+    if (arguments->testId >= 0)
+        return testId != arguments->testId;
+    if (!arguments->matchSize)
+        return 0;
+    const char *name = cut_unitTests.tests[testId].name;
+    for (int i = 0; i < arguments->matchSize; ++i) {
+        if (strstr(name, arguments->match[i]))
+            return 0;
+    }
+    return 1;
+}
+
+CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs) {
+    struct cut_UnitTest *lhs = (struct cut_UnitTest *)_lhs;
+    struct cut_UnitTest *rhs = (struct cut_UnitTest *)_rhs;
+
+    int result = strcmp(lhs->file, rhs->file);
+    if (!result)
+        result = lhs->line <= rhs->line ? -1 : 1;
+    return result;
+}
+
 CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
     for (int testId = 0; testId < cut_unitTests.size; testId++)
         cut_QueuePushTest(shepherd->queuedTests, testId);
 }
-
 
 CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cut_Arguments *arguments, struct cut_Queue *queue) {
     cut_noFork = arguments->noFork;
@@ -162,13 +158,14 @@ CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cu
     shepherd->filteredOut = 0;
     shepherd->skipped = 0;
     shepherd->failed = 0;
-    shepherd->startTest = (void (*)(struct cut_Shepherd *, int)) cut_OutputNoop;
-    shepherd->startSubTests = (void (*)(struct cut_Shepherd *, int, int)) cut_OutputNoop;
-    shepherd->startSubTest = (void (*)(struct cut_Shepherd *, int, int)) cut_OutputNoop;
-    shepherd->endSubTest = (void (*)(struct cut_Shepherd *, int, int, const struct cut_UnitResult *)) cut_OutputNoop;
-    shepherd->endTest = (void (*)(struct cut_Shepherd *, int, const struct cut_UnitResult *)) cut_OutputNoop;
-    shepherd->finalize = (void (*)(struct cut_Shepherd *)) cut_OutputNoop;
-    shepherd->clear = (void (*)(struct cut_Shepherd *)) cut_OutputNoop;
+    shepherd->listTests = (void (*)(const struct cut_Shepherd *)) cut_ShepherdNoop;
+    shepherd->startTest = (void (*)(struct cut_Shepherd *, int)) cut_ShepherdNoop;
+    shepherd->startSubTests = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;
+    shepherd->startSubTest = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;
+    shepherd->endSubTest = (void (*)(struct cut_Shepherd *, int, int, const struct cut_UnitResult *)) cut_ShepherdNoop;
+    shepherd->endTest = (void (*)(struct cut_Shepherd *, int, const struct cut_UnitResult *)) cut_ShepherdNoop;
+    shepherd->finalize = (void (*)(struct cut_Shepherd *)) cut_ShepherdNoop;
+    shepherd->clear = (void (*)(struct cut_Shepherd *)) cut_ShepherdNoop;
 
     shepherd->unitRunner = arguments->noFork ? cut_RunUnitForkless : cut_RunUnit;
 
@@ -184,7 +181,6 @@ CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cu
     else
         cut_InitOutput_std(shepherd);
 }
-
 
 CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd) {
     cut_ClearQueue(shepherd->queuedTests);
@@ -213,12 +209,17 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv) {
     }
 
     qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
+    cut_EnqueueTests(&shepherd);
+
+    if (arguments.list) {
+        returnValue = cut_List(&shepherd);
+        goto cleanup;
+    }
 
     if (cut_PreRun(&arguments)) {
         goto cleanup;
     }
 
-    cut_EnqueueTests(&shepherd);
     cut_RunUnitTests(&shepherd);
 
     shepherd.finalize(&shepherd);

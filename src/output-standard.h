@@ -202,6 +202,13 @@ CUT_PRIVATE void cut_Clear_std(struct cut_Shepherd *shepherd) {
     free(data);
 }
 
+CUT_PRIVATE void cut_ListTests_std(const struct cut_Shepherd *shepherd) {
+    fprintf(shepherd->output, "Tests:\n");
+    for (int i = 0; i <  cut_unitTests.size; ++i) {
+        fprintf(shepherd->output, "\t%s\n", cut_unitTests.tests[i].name);
+    }
+}
+
 CUT_PRIVATE void cut_InitOutput_std(struct cut_Shepherd *shepherd) {
 
     shepherd->data = malloc(sizeof(struct cut_OutputData_std));
@@ -215,6 +222,7 @@ CUT_PRIVATE void cut_InitOutput_std(struct cut_Shepherd *shepherd) {
         cut_FatalExit("cannot allocate memory for output");
     memset(data->attributes, 0, sizeof(struct cut_TestAttributes_std) * cut_unitTests.size);
 
+    shepherd->listTests = cut_ListTests_std;
     shepherd->startTest = cut_StartTest_std;
     shepherd->startSubTests = cut_StartSubTests_std;
     shepherd->endSubTest = cut_EndSubTest_std;

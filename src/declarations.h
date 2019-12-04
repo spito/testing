@@ -65,6 +65,7 @@ struct cut_UnitTestArray {
 
 struct cut_Arguments {
     int help;
+    int list;
     unsigned timeout;
     int noFork;
     int noColor;
@@ -100,6 +101,7 @@ struct cut_Queue {
 
 struct cut_QueueItem {
     int testId;
+    int depends;
     struct cut_QueueItem *next;
     struct cut_Queue depending;
 };
@@ -120,6 +122,7 @@ struct cut_Shepherd {
     struct cut_Queue *queuedTests;
     // cut_RunUnit();
     void (*unitRunner)(struct cut_Shepherd *, int, int, struct cut_UnitResult *);
+    void (*listTests)(const struct cut_Shepherd *);
     void (*startTest)(struct cut_Shepherd *, int testId);
     void (*startSubTests)(struct cut_Shepherd *, int testId, int subtests);
     void (*startSubTest)(struct cut_Shepherd *, int testId, int subtest);
@@ -129,76 +132,104 @@ struct cut_Shepherd {
     void (*clear)(struct cut_Shepherd *);
 };
 
+// core:public
 
-// common functions
-CUT_NORETURN int cut_FatalExit(const char *reason);
-CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
-//void cut_Register(cut_Instance instance, const char *name, int points, const char **required, size_t requiredSize, const char *file, size_t line);
+typedef void(*cut_Instance)(int *, int);
+typedef void(*cut_GlobalTear)();
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line);
 void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
 void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
-CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments);
-CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message);
-CUT_PRIVATE int cut_ReadMessage(int pipeRead, struct cut_Fragment *message);
-CUT_PRIVATE void cut_ResetLocalMessage();
-CUT_PRIVATE int cut_SendLocalMessage(struct cut_Fragment *message);
-CUT_PRIVATE int cut_ReadLocalMessage(int pipeRead, struct cut_Fragment *message);
-CUT_PRIVATE void cut_SendOK(int counter);
-void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
+int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
 int cut_Input(const char *content);
-#  ifdef __cplusplus
-CUT_PRIVATE void cut_StopException(const char *type, const char *text);
-#  endif
-CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest);
-CUT_PRIVATE void cut_Timeouted();
 void cut_Subtest(int number, const char *name);
-CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result);
-CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name);
-CUT_PRIVATE int cut_AddInfo(struct cut_Info **info,
-    size_t line, const char *file, const char *text);
-CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result,
-    size_t line, const char *file, const char *text);
-CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result,
-    const char *type, const char *text);
-CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, char **argv);
-CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, int testId);
-CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color);
-CUT_PRIVATE const char *cut_ShortPath(const struct cut_Arguments *arguments, const char *path);
+void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
+
+// core:private
+
+CUT_NORETURN int cut_FatalExit(const char *reason);
+CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
+
 CUT_PRIVATE void cut_ClearInfo(struct cut_Info *info);
-CUT_PRIVATE void cut_ClearMemory(struct cut_UnitResult *result);
-CUT_PRIVATE int cut_TestComparator(const void *lhs, const void *rhs);
-CUT_PRIVATE int cut_Runner(int argc, char **argv);
+CUT_PRIVATE void cut_ClearUnitResult(struct cut_UnitResult *result);
+
+CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments);
+CUT_PRIVATE int cut_List(const struct cut_Shepherd *shepherd);
+
+// arguments
+
+CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, char **argv);
+
+// execution
+
+CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest);
 CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, int testId, int subtest,
                                      struct cut_UnitResult *result);
-CUT_PRIVATE void cut_InitOutput_std(struct cut_Shepherd *shepherd);
-CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *, const struct cut_Arguments *arguments, struct cut_Queue *queue);
-CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd);
 CUT_PRIVATE void cut_RunUnitTest(struct cut_Shepherd *shepherd, struct cut_UnitResult *result, int testId);
 CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd);
 CUT_PRIVATE void cut_RunUnitSubTest(struct cut_Shepherd *shepherd, int testId, int subtest);
 CUT_PRIVATE void cut_RunUnitSubTests(struct cut_Shepherd *shepherd, int testId, int subtests);
 
+CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, int testId);
+CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd);
+CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs);
+CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cut_Arguments *arguments,
+                                  struct cut_Queue *queue);
+CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd);
+
+CUT_PRIVATE int cut_Runner(int argc, char **argv);
+
+// messages
+
+CUT_PRIVATE void cut_SendOK(int counter);
+void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
+void cut_Stop(const char *text, const char *file, size_t line);
+void cut_Check(const char *text, const char *file, size_t line);
+#  ifdef __cplusplus
+CUT_PRIVATE void cut_StopException(const char *type, const char *text);
+#  endif
+CUT_PRIVATE void cut_Timeouted();
+void cut_Subtest(int number, const char *name);
+CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result);
+CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name);
+CUT_PRIVATE int cut_AddInfo(struct cut_Info **info, size_t line, const char *file, const char *text);
+CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result, size_t line, const char *file, const char *text);
+CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result, const char *type, const char *text);
+
+// output
+
+CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color);
+CUT_PRIVATE const char *cut_ShortPath(const struct cut_Arguments *arguments, const char *path);
+CUT_PRIVATE const char *cut_Signal(int signal);
+CUT_PRIVATE const char *cut_ReturnCode(int returnCode);
+CUT_PRIVATE void cut_ShepherdNoop(struct cut_Shepherd *shepherd, ...);
+
+// queue
+
 CUT_PRIVATE void cut_InitQueue(struct cut_Queue *queue);
 CUT_PRIVATE struct cut_QueueItem *cut_QueuePushTest(struct cut_Queue *queue, int testId);
+CUT_PRIVATE void cut_ClearQueueItems(struct cut_QueueItem *current);
+CUT_PRIVATE void cut_ClearQueue(struct cut_Queue *queue);
 CUT_PRIVATE struct cut_QueueItem *cut_QueuePopTest(struct cut_Queue *queue);
 CUT_PRIVATE void cut_MeltQueueItem(struct cut_Queue *queue, struct cut_QueueItem *toMelt);
-CUT_PRIVATE void cut_ClearQueue(struct cut_Queue *queue);
 
-CUT_PRIVATE const char *cut_ReturnCode(int returnCode);
-CUT_PRIVATE const char *cut_Signal(int signal);
 
 // platform specific functions
-CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes);
-CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes);
+CUT_PRIVATE int cut_IsTerminalOutput();
+CUT_PRIVATE int cut_IsDebugger();
+
 CUT_PRIVATE void cut_RedirectIO();
 CUT_PRIVATE void cut_ResumeIO();
+
+CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes);
+CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes);
+
 CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments);
 CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest,
                              struct cut_UnitResult *result);
+
 int cut_File(FILE *file, const char *content);
-CUT_PRIVATE int cut_IsDebugger();
-CUT_PRIVATE int cut_IsTerminalOutput();
 CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text);
 
 #endif // CUT_DECLARATIONS_H
