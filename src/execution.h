@@ -69,6 +69,13 @@ CUT_PRIVATE void cut_RunUnitTest(struct cut_Shepherd *shepherd, struct cut_UnitR
         cut_RunUnitSubTests(shepherd, testId, result->subtests);
 }
 
+CUT_PRIVATE void cut_SkipDependingUnitTests(struct cut_Shepherd *shepherd, struct cut_QueueItem *item, enum cut_SkipReason reason) {
+    struct cut_QueueItem *cursor = item->depending.first;
+    for (; cursor; cursor = cursor->next) {
+        cut_unitTests.tests[cursor->testId].skipReason = reason;
+    }
+}
+
 CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd) {
 
     struct cut_QueueItem *item = NULL;
@@ -78,17 +85,31 @@ CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd) {
 
         shepherd->startTest(shepherd, item->testId);
 
-        if (cut_unitTests.tests[item->testId].settings->suppress)
+        if (cut_unitTests.tests[item->testId].skipReason != cut_SKIP_REASON_NO_SKIP)
+            result.status = (enum cut_ResultStatus) cut_unitTests.tests[item->testId].skipReason;
+        else if (cut_unitTests.tests[item->testId].settings->suppress)
             result.status = cut_RESULT_SUPPRESSED;
         else if (cut_FilterOutUnit(shepherd->arguments, item->testId))
             result.status = cut_RESULT_FILTERED_OUT;
         else
             cut_RunUnitTest(shepherd, &result, item->testId);
-        // TODO: handle dependent tests
+
+        switch (result.status) {
+        case cut_RESULT_OK:
+            break;
+        case cut_RESULT_FILTERED_OUT:
+            cut_SkipDependingUnitTests(shepherd, item, cut_SKIP_REASON_FILTERED_OUT);
+            break;
+        case cut_RESULT_SUPPRESSED:
+            cut_SkipDependingUnitTests(shepherd, item, cut_SKIP_REASON_SUPPRESSED);
+            break;
+        default:
+            cut_SkipDependingUnitTests(shepherd, item, cut_SKIP_REASON_FAILED);
+            break;
+        }
+        cut_QueueMeltTest(shepherd->queuedTests, item);
 
         shepherd->endTest(shepherd, item->testId, &result);
-
-        cut_MeltQueueItem(shepherd->queuedTests, item);
         cut_ClearUnitResult(&result);
     }
 }
@@ -146,14 +167,91 @@ CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs) {
     return result;
 }
 
+struct cut_SortedTestItem {
+    const char *name;
+    int testId;
+};
+
+CUT_PRIVATE int cut_TestFinder(const void *_name, const void *_test) {
+    const char *name = (const char *)_name;
+    const struct cut_SortedTestItem *test = (const struct cut_SortedTestItem *)_test;
+
+    return strcmp(name, test->name);
+}
+
+CUT_PRIVATE cut_SortTestsByName(const void *_lhs, const void *_rhs) {
+    const struct cut_SortedTestItem *lhs = (const struct cut_Xcut_SortedTestItemXX *) _lhs;
+    const struct cut_SortedTestItem *rhs = (const struct cut_SortedTestItem *) _rhs;
+    return strcmp(lhs->name, rhs->name);
+}
+
 CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
-    for (int testId = 0; testId < cut_unitTests.size; testId++) {
+    size_t remainingTests = cut_unitTests.size;
+    struct cut_EnqueuePair *tests = (struct cut_EnqueuePair *) malloc(sizeof(struct cut_EnqueuePair) * cut_unitTests.size);
+    memset(tests, 0, sizeof(struct cut_EnqueuePair) * cut_unitTests.size);
+    struct cut_Queue localQueue;
+    cut_InitQueue(&localQueue);
+
+    struct cut_SortedTestItem *sortedTests = (struct cut_SortedTestItem *) malloc(sizeof(struct cut_SortedTestItem) * cut_unitTests.size);
+    memset(sortedTests, 0, sizeof(struct cut_SortedTestItem) * cut_unitTests.size);
+
+    for (int testId = 0; testId < cut_unitTests.size; ++testId) {
+        sortedTests[testId].name = cut_unitTests.tests[testId].name;
+        sortedTests[testId].testId = testId;
+    }
+
+    qsort(sortedTests, cut_unitTests.size, sizeof(struct cut_SortedTestItem), cut_SortTestsByName);
+
+    for (int testId = 0; testId < cut_unitTests.size; ++testId) {
         if (shepherd->arguments->timeoutDefined || !cut_unitTests.tests[testId].settings->timeoutDefined) {
             cut_unitTests.tests[testId].settings->timeout = shepherd->arguments->timeout;
         }
 
-        cut_QueuePushTest(shepherd->queuedTests, testId);
+        if (cut_unitTests.tests[testId].settings->needSize == 1) {
+            tests[testId].self = cut_QueuePushTest(shepherd->queuedTests, testId);
+            --remainingTests;
+        }
+        else {
+            tests[testId].appliedNeeds = (int *) malloc(sizeof(int) * cut_unitTests.tests[testId].settings->needSize);
+            memset(tests[testId].appliedNeeds, 0, sizeof(int) * cut_unitTests.tests[testId].settings->needSize);
+            cut_QueuePushTest(&localQueue, testId);
+        }
     }
+
+    struct cut_QueueItem *current = cut_QueuePopTest(&localQueue);
+    for (; current; current = cut_QueuePopTest(&localQueue)) {
+        int testId = current->testId;
+        const struct cut_Settings *settings = cut_unitTests.tests[testId].settings;
+        --remainingTests;
+        for (size_t n = 1; n < settings->needSize; ++n) {
+            if (tests[testId].appliedNeeds[n])
+                continue;
+            struct cut_SortedTestItem *need = (struct cut_SortedTestItem *) bsearch(
+                settings->needs[n], sortedTests, cut_unitTests.size, sizeof(struct cut_SortedTestItem),
+                cut_TestFinder);
+            if (!need)
+                cut_ErrorExit("Test %s depends on %s; such test does not exists, however.", cut_unitTests.tests[testId].name, settings->needs[n]);
+            if (!tests[need->testId].self) {
+                cut_QueueRePushTest(&localQueue, current);
+                ++remainingTests;
+                break;
+            }
+
+            tests[testId].appliedNeeds[n] = 1;
+            if (!tests[testId].self)
+                tests[testId].self = cut_QueuePushTest(&tests[need->testId].self->depending, testId);
+            else
+                cut_QueueAddTest(&tests[need->testId].self->depending, tests[testId].self);
+        }
+    }
+    for (int testId = 0; testId < cut_unitTests.size; ++testId)
+        free(tests[testId].appliedNeeds);
+    free(tests);
+    cut_ClearQueue(&localQueue);
+
+    printf("%d\n", remainingTests);
+    if (remainingTests)
+        cut_ErrorExit("There is a cyclic dependency between tests.");
 }
 
 CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cut_Arguments *arguments, struct cut_Queue *queue) {

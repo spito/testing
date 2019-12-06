@@ -248,6 +248,7 @@ void cut_Register(cut_Instance instance, const char *name, const char *file, siz
     cut_unitTests.tests[cut_unitTests.size].file = file;
     cut_unitTests.tests[cut_unitTests.size].line = line;
     cut_unitTests.tests[cut_unitTests.size].settings = settings;
+    cut_unitTests.tests[cut_unitTests.size].skipReason = cut_SKIP_REASON_NO_SKIP;
     ++cut_unitTests.size;
 }
 
