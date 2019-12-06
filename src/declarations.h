@@ -26,13 +26,20 @@ enum cut_MessageType {
 enum cut_ResultStatus {
     cut_RESULT_UNKNOWN,
     cut_RESULT_OK,
+    cut_RESULT_FILTERED_OUT,
     cut_RESULT_SUPPRESSED,
     cut_RESULT_FAILED,
     cut_RESULT_RETURNED_NON_ZERO,
     cut_RESULT_SIGNALLED,
     cut_RESULT_TIMED_OUT,
-    cut_RESULT_SKIPPED,
-    cut_RESULT_FILTERED_OUT
+    cut_RESULT_SKIPPED
+};
+
+enum cut_SkipReason {
+    cut_SKIP_REASON_NO_SKIP,
+    cut_SKIP_REASON_FILTERED_OUT = cut_RESULT_FILTERED_OUT,
+    cut_SKIP_REASON_SUPPRESSED = cut_RESULT_SUPPRESSED,
+    cut_SKIP_REASON_FAILED = cut_RESULT_SKIPPED
 };
 
 struct cut_UnitResult {
@@ -67,6 +74,7 @@ struct cut_UnitTest {
     const char *file;
     size_t line;
     struct cut_Settings *settings;
+    enum cut_SkipReason skipReason;
 };
 
 struct cut_UnitTestArray {
@@ -114,7 +122,7 @@ struct cut_Queue {
 
 struct cut_QueueItem {
     int testId;
-    int depends;
+    int *refCount;
     struct cut_QueueItem *next;
     struct cut_Queue depending;
 };
@@ -136,7 +144,6 @@ struct cut_Shepherd {
 
     const struct cut_Arguments *arguments;
     struct cut_Queue *queuedTests;
-    // cut_RunUnit();
     void (*unitRunner)(struct cut_Shepherd *, int, int, struct cut_UnitResult *);
     void (*listTests)(const struct cut_Shepherd *);
     void (*startTest)(struct cut_Shepherd *, int testId);
@@ -147,6 +154,13 @@ struct cut_Shepherd {
     void (*finalize)(struct cut_Shepherd *);
     void (*clear)(struct cut_Shepherd *);
 };
+
+struct cut_EnqueuePair {
+    int *appliedNeeds;
+    struct cut_QueueItem *self;
+};
+
+
 
 // core:public
 
@@ -196,6 +210,15 @@ CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd);
 
 CUT_PRIVATE int cut_Runner(int argc, char **argv);
 
+// gc
+
+CUT_PRIVATE void *cut_GCalloc(size_t size);
+CUT_PRIVATE void *cut_GCrealloc(void *ptr, size_t size);
+CUT_PRIVATE void *cut_GCgroupAlloc(void *self, size_t size);
+CUT_PRIVATE void *cut_GCgroupRealloc(void *self, void *ptr, size_t size);
+CUT_PRIVATE void cut_GCgroupInit(void *self);
+CUT_PRIVATE void cut_GCgroupFree(void *self);
+
 // messages
 
 CUT_PRIVATE void cut_SendOK(int counter);
@@ -228,8 +251,9 @@ CUT_PRIVATE struct cut_QueueItem *cut_QueuePushTest(struct cut_Queue *queue, int
 CUT_PRIVATE void cut_ClearQueueItems(struct cut_QueueItem *current);
 CUT_PRIVATE void cut_ClearQueue(struct cut_Queue *queue);
 CUT_PRIVATE struct cut_QueueItem *cut_QueuePopTest(struct cut_Queue *queue);
-CUT_PRIVATE void cut_MeltQueueItem(struct cut_Queue *queue, struct cut_QueueItem *toMelt);
-
+CUT_PRIVATE void cut_QueueMeltTest(struct cut_Queue *queue, struct cut_QueueItem *toMelt);
+CUT_PRIVATE int cut_QueueRePushTest(struct cut_Queue *queue, struct cut_QueueItem *toRePush);
+CUT_PRIVATE void cut_QueueAddTest(struct cut_Queue *queue, struct cut_QueueItem *toAdd);
 
 // platform specific functions
 CUT_PRIVATE int cut_IsTerminalOutput();
