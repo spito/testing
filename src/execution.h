@@ -180,13 +180,13 @@ CUT_PRIVATE int cut_TestFinder(const void *_name, const void *_test) {
 }
 
 CUT_PRIVATE cut_SortTestsByName(const void *_lhs, const void *_rhs) {
-    const struct cut_SortedTestItem *lhs = (const struct cut_Xcut_SortedTestItemXX *) _lhs;
+    const struct cut_SortedTestItem *lhs = (const struct cut_SortedTestItem *) _lhs;
     const struct cut_SortedTestItem *rhs = (const struct cut_SortedTestItem *) _rhs;
     return strcmp(lhs->name, rhs->name);
 }
 
 CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
-    size_t remainingTests = cut_unitTests.size;
+    int cyclicDependency = 0;
     struct cut_EnqueuePair *tests = (struct cut_EnqueuePair *) malloc(sizeof(struct cut_EnqueuePair) * cut_unitTests.size);
     memset(tests, 0, sizeof(struct cut_EnqueuePair) * cut_unitTests.size);
     struct cut_Queue localQueue;
@@ -209,7 +209,6 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
 
         if (cut_unitTests.tests[testId].settings->needSize == 1) {
             tests[testId].self = cut_QueuePushTest(shepherd->queuedTests, testId);
-            --remainingTests;
         }
         else {
             tests[testId].appliedNeeds = (int *) malloc(sizeof(int) * cut_unitTests.tests[testId].settings->needSize);
@@ -222,8 +221,8 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
     for (; current; current = cut_QueuePopTest(&localQueue)) {
         int testId = current->testId;
         const struct cut_Settings *settings = cut_unitTests.tests[testId].settings;
-        --remainingTests;
-        for (size_t n = 1; n < settings->needSize; ++n) {
+        int needSatisfaction = settings->needSize - 1;
+        for (size_t n = 1; n < settings->needSize; ++n, --needSatisfaction) {
             if (tests[testId].appliedNeeds[n])
                 continue;
             struct cut_SortedTestItem *need = (struct cut_SortedTestItem *) bsearch(
@@ -233,24 +232,32 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
                 cut_ErrorExit("Test %s depends on %s; such test does not exists, however.", cut_unitTests.tests[testId].name, settings->needs[n]);
             if (!tests[need->testId].self) {
                 cut_QueueRePushTest(&localQueue, current);
-                ++remainingTests;
+                if (cut_unitTests.size < ++tests[testId].retry) {
+                    cyclicDependency = 1;
+                    goto end;
+                }
                 break;
             }
-
-            tests[testId].appliedNeeds[n] = 1;
+            tests[testId].appliedNeeds[n] = need->testId + 1;
+        }
+        if (needSatisfaction)
+            continue;
+        for (size_t n = 1; n < settings->needSize; ++n) {
+            int needId = tests[testId].appliedNeeds[n] - 1;
             if (!tests[testId].self)
-                tests[testId].self = cut_QueuePushTest(&tests[need->testId].self->depending, testId);
+                tests[testId].self = cut_QueuePushTest(&tests[needId].self->depending, testId);
             else
-                cut_QueueAddTest(&tests[need->testId].self->depending, tests[testId].self);
+                tests[testId].self = cut_QueueAddTest(&tests[needId].self->depending, tests[testId].self);
         }
     }
+end:
     for (int testId = 0; testId < cut_unitTests.size; ++testId)
         free(tests[testId].appliedNeeds);
     free(tests);
+    free(sortedTests);
     cut_ClearQueue(&localQueue);
 
-    printf("%d\n", remainingTests);
-    if (remainingTests)
+    if (cyclicDependency)
         cut_ErrorExit("There is a cyclic dependency between tests.");
 }
 

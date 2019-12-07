@@ -141,9 +141,15 @@ CUT_PRIVATE int cut_QueueRePushTest(struct cut_Queue *queue, struct cut_QueueIte
     return 1;
 }
 
-CUT_PRIVATE void cut_QueueAddTest(struct cut_Queue *queue, struct cut_QueueItem *toAdd) {
+CUT_PRIVATE struct cut_QueueItem *cut_QueueAddTest(struct cut_Queue *queue, struct cut_QueueItem *toAdd) {
     struct cut_QueueItem *item = cut_QueuePushRefCountedTest(queue, toAdd->testId, toAdd->refCount);
     ++*item->refCount;
+    item->depending.first = toAdd->depending.first;
+    item->depending.last = toAdd->depending.last;
+    item->depending.trash = toAdd->depending.trash;
+    item->depending.size = toAdd->depending.size;
+    memset(&toAdd->depending, 0, sizeof(struct cut_Queue));
+    return item;
 }
 
 #endif
