@@ -158,6 +158,7 @@ struct cut_Shepherd {
 struct cut_EnqueuePair {
     int *appliedNeeds;
     struct cut_QueueItem *self;
+    int retry;
 };
 
 
@@ -211,14 +212,14 @@ CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd);
 CUT_PRIVATE int cut_Runner(int argc, char **argv);
 
 // gc
-
+/*
 CUT_PRIVATE void *cut_GCalloc(size_t size);
 CUT_PRIVATE void *cut_GCrealloc(void *ptr, size_t size);
 CUT_PRIVATE void *cut_GCgroupAlloc(void *self, size_t size);
 CUT_PRIVATE void *cut_GCgroupRealloc(void *self, void *ptr, size_t size);
 CUT_PRIVATE void cut_GCgroupInit(void *self);
 CUT_PRIVATE void cut_GCgroupFree(void *self);
-
+*/
 // messages
 
 CUT_PRIVATE void cut_SendOK(int counter);
@@ -253,7 +254,7 @@ CUT_PRIVATE void cut_ClearQueue(struct cut_Queue *queue);
 CUT_PRIVATE struct cut_QueueItem *cut_QueuePopTest(struct cut_Queue *queue);
 CUT_PRIVATE void cut_QueueMeltTest(struct cut_Queue *queue, struct cut_QueueItem *toMelt);
 CUT_PRIVATE int cut_QueueRePushTest(struct cut_Queue *queue, struct cut_QueueItem *toRePush);
-CUT_PRIVATE void cut_QueueAddTest(struct cut_Queue *queue, struct cut_QueueItem *toAdd);
+CUT_PRIVATE struct cut_QueueItem *cut_QueueAddTest(struct cut_Queue *queue, struct cut_QueueItem *toAdd);
 
 // platform specific functions
 CUT_PRIVATE int cut_IsTerminalOutput();

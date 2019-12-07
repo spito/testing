@@ -1,7 +1,7 @@
 #include <cut.h>
 
 
-TEST(A, TEST_SETTINGS(), TEST_NEEDS("Second", "Third", "B")) {
+TEST(A, TEST_SETTINGS(), TEST_NEEDS("Second", "Third")) {
 
 }
 
@@ -15,7 +15,7 @@ TEST(Second, TEST_SETTINGS(), TEST_NEEDS("First")) {
 }
 
 TEST(Third, TEST_SETTINGS(), TEST_NEEDS("Second")) {
-    DEBUG_MSG("Third");
+    DEBUG_MSG("Th\"ird");
     CHECK(0);
 }
 
