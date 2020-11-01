@@ -117,35 +117,57 @@ CUT_PRIVATE char *cut_FragmentGet(struct cut_Fragment *fragments, int sliceId, s
     return current->data;
 }
 
-CUT_PRIVATE int cut_FragmentSerialize(struct cut_Fragment *fragments) {
-    if (!fragments)
-        return 0;
-    if (fragments->serialized)
-        free(fragments->serialized);
-    uint32_t length = sizeof(struct cut_FragmentHeader);
-    length += fragments->sliceCount * sizeof(uint16_t);
-    uint32_t contentOffset = length;
+CUT_PRIVATE uint32_t cut_FragmentCalculateContentOffset(const struct cut_Fragment *fragments) {
+    uint32_t offset = sizeof(struct cut_FragmentHeader);
+    offset += fragments->sliceCount * sizeof(uint16_t);
+    return offset;
+}
+
+CUT_PRIVATE uint32_t cut_FragmentCalculateSpace(const struct cut_Fragment *fragments) {
+    uint32_t length = cut_FragmentCalculateContentOffset(fragments);
     for (struct cut_FragmentSlice *current = fragments->slices; current; current = current->next) {
         length += current->length;
     }
-    if (length > CUT_MAX_SERIALIZED_LENGTH)
-        return 0;
-    fragments->serialized = (char *)malloc(length);
-    if (!fragments->serialized)
-        return 0;
-    fragments->serializedLength = length;
-    memset(fragments->serialized, 0, length);
+    return length;
+}
+
+CUT_PRIVATE void cut_FragmentSerializeHeader(struct cut_Fragment *fragments) {
+    memset(fragments->serialized, 0, fragments->serializedLength);
+
     struct cut_FragmentHeader *header = (struct cut_FragmentHeader *)fragments->serialized;
-    header->length = length;
+    header->length = fragments->serializedLength;
     header->id = fragments->id;
     header->sliceCount = fragments->sliceCount;
-    uint16_t *sliceLength = (uint16_t *)(header + 1);
+}
+
+CUT_PRIVATE void cut_FragmentSerializeSlices(struct cut_Fragment *fragments) {
+    uint32_t contentOffset = cut_FragmentCalculateContentOffset(fragments);
+    uint16_t *sliceLength = (uint16_t *)(fragments->serialized + sizeof(struct cut_FragmentHeader));
+
     for (struct cut_FragmentSlice *current = fragments->slices; current; current = current->next) {
         *sliceLength = current->length;
         ++sliceLength;
         memcpy(fragments->serialized + contentOffset, current->data, current->length);
         contentOffset += current->length;
     }
+}
+
+CUT_PRIVATE int cut_FragmentSerialize(struct cut_Fragment *fragments) {
+    if (!fragments)
+        return 0;
+    if (fragments->serialized)
+        free(fragments->serialized);
+
+    uint32_t length = cut_FragmentCalculateSpace(fragments);
+    if (length > CUT_MAX_SERIALIZED_LENGTH)
+        return 0;
+    fragments->serialized = (char *)malloc(length);
+    if (!fragments->serialized)
+        return 0;
+    fragments->serializedLength = length;
+
+    cut_FragmentSerializeHeader(fragments);
+    cut_FragmentSerializeSlices(fragments);
     return 1;
 }
 
@@ -155,28 +177,15 @@ CUT_PRIVATE int cut_FragmentSignalSafeSerialize(struct cut_Fragment *fragments) 
         return 0;
     if (fragments->serialized)
         return 0;
-    uint32_t length = sizeof(struct cut_FragmentHeader);
-    length += fragments->sliceCount * sizeof(uint16_t);
-    uint32_t contentOffset = length;
-    for (struct cut_FragmentSlice *current = fragments->slices; current; current = current->next) {
-        length += current->length;
-    }
+
+    uint32_t length = cut_FragmentCalculateSpace(fragments);
     if (length > CUT_MAX_SIGNAL_SAFE_SERIALIZED_LENGTH)
         return 0;
     fragments->serialized = buffer;
     fragments->serializedLength = length;
-    memset(fragments->serialized, 0, length);
-    struct cut_FragmentHeader *header = (struct cut_FragmentHeader *)fragments->serialized;
-    header->length = length;
-    header->id = fragments->id;
-    header->sliceCount = fragments->sliceCount;
-    uint16_t *sliceLength = (uint16_t *)(header + 1);
-    for (struct cut_FragmentSlice *current = fragments->slices; current; current = current->next) {
-        *sliceLength = current->length;
-        ++sliceLength;
-        memcpy(fragments->serialized + contentOffset, current->data, current->length);
-        contentOffset += current->length;
-    }
+
+    cut_FragmentSerializeHeader(fragments);
+    cut_FragmentSerializeSlices(fragments);
     return 1;
 }
 
