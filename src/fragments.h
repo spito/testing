@@ -1,14 +1,12 @@
 #ifndef CUT_FRAGMENTS_H
 #define CUT_FRAGMENTS_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
-
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/types.h>
+
+#include "definitions.h"
 
 #define CUT_MAX_SLICE_COUNT 255
 #define CUT_MAX_SERIALIZED_LENGTH (256*256-1)

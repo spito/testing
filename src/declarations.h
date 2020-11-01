@@ -1,9 +1,11 @@
 #ifndef CUT_DECLARATIONS_H
 #define CUT_DECLARATIONS_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
+#include <stdint.h>
+#include <stdio.h>
+
+#include "definitions.h"
+#include "os-specific.h"
 
 struct cut_Info {
     char *message;
@@ -36,7 +38,7 @@ enum cut_ResultStatus {
 };
 
 enum cut_SkipReason {
-    cut_SKIP_REASON_NO_SKIP,
+    cut_SKIP_REASON_NO_SKIP = 0,
     cut_SKIP_REASON_FILTERED_OUT = cut_RESULT_FILTERED_OUT,
     cut_SKIP_REASON_SUPPRESSED = cut_RESULT_SUPPRESSED,
     cut_SKIP_REASON_FAILED = cut_RESULT_SKIPPED
@@ -65,7 +67,7 @@ struct cut_Settings {
     int suppress;
     double points;
     const char **needs;
-    size_t needSize;
+    unsigned long needSize;
 };
 
 struct cut_UnitTest {
@@ -162,7 +164,6 @@ struct cut_EnqueuePair {
 };
 
 
-
 // core:public
 
 typedef void(*cut_Instance)(int *, int);
@@ -211,15 +212,6 @@ CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd);
 
 CUT_PRIVATE int cut_Runner(int argc, char **argv);
 
-// gc
-/*
-CUT_PRIVATE void *cut_GCalloc(size_t size);
-CUT_PRIVATE void *cut_GCrealloc(void *ptr, size_t size);
-CUT_PRIVATE void *cut_GCgroupAlloc(void *self, size_t size);
-CUT_PRIVATE void *cut_GCgroupRealloc(void *self, void *ptr, size_t size);
-CUT_PRIVATE void cut_GCgroupInit(void *self);
-CUT_PRIVATE void cut_GCgroupFree(void *self);
-*/
 // messages
 
 CUT_PRIVATE void cut_SendOK(int counter);

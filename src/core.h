@@ -30,45 +30,9 @@ Should not harm elsewhere.
 
 #else
 
-# define CUT_PRIVATE static
+#include "definitions.h"
+#include "os-specific.h"
 
-# if !defined(CUT_DEFAULT_TIMEOUT)
-#  define CUT_DEFAULT_TIMEOUT 3
-# endif
-
-# if !defined(CUT_NO_FORK)
-#  define CUT_NO_FORK cut_IsDebugger()
-# else
-#  undef CUT_NO_FORK
-#  define CUT_NO_FORK 1
-# endif
-
-# if !defined(CUT_NO_COLOR)
-#  define CUT_NO_COLOR !cut_IsTerminalOutput()
-# else
-#  undef CUT_NO_COLOR
-#  define CUT_NO_COLOR 1
-# endif
-
-# if !defined(CUT_MAX_PATH)
-#  define CUT_MAX_PATH 80
-# endif
-
-# if !defined(CUT_FORMAT)
-#  define CUT_FORMAT "standard"
-# endif
-
-
-
-# if defined(__linux__)
-#  include "linux-define.h"
-# elif defined(__APPLE__) || defined(__unix)
-#  include "unix-define.h"
-# elif defined(_WIN32)
-#  include "windows-define.h"
-# else
-#  error "unsupported platform"
-# endif
 
 # define _POSIX_C_SOURCE 199309L
 # define _XOPEN_SOURCE 500
