@@ -179,7 +179,7 @@ CUT_PRIVATE int cut_TestFinder(const void *_name, const void *_test) {
     return strcmp(name, test->name);
 }
 
-CUT_PRIVATE cut_SortTestsByName(const void *_lhs, const void *_rhs) {
+CUT_PRIVATE int cut_SortTestsByName(const void *_lhs, const void *_rhs) {
     const struct cut_SortedTestItem *lhs = (const struct cut_SortedTestItem *) _lhs;
     const struct cut_SortedTestItem *rhs = (const struct cut_SortedTestItem *) _rhs;
     return strcmp(lhs->name, rhs->name);
