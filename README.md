@@ -57,7 +57,7 @@ Runtime configuration is done via command line arguments. Arguments are used to 
 ### Provided macros
 
  * `TEST(name)` - Defines test and its name.
- * `SUBTEST(name)` - Defines subtest within the test. Each subtest is executed separately and eventualy in its own process.
+ * `SUBTEST("name")` - Defines subtest within the test. Each subtest is executed separately and eventualy in its own process.
  * `REPEATED_SUBTEST(name, count)` - Defines subtest which is run `count`-times. Do not mix with the `SUBTEST()` in the same `TEST()`.
  * `SUBTEST_NO` - A number of current subtest iteration in the `REPEATED_SUBTEST()`.
  * `ASSERT(condition)` - Check if the condition is non-zero. If not, aborts the test.
@@ -68,7 +68,7 @@ Runtime configuration is done via command line arguments. Arguments are used to 
  * `GLOBAL_TEAR_UP()` - Defines a function executed before each test/subtest.
  * `GLOBAL_TEAR_DOWN()` - Defines a function executed after each test/subtest even in case of assert failure or uncaught exception. The function is not executed in case of abnormal termination of test.
 
-When `SUBTEST(name)` or `REPEATED_SUBTEST(name, count)` is used, the whole test is run several times. The first run does not execute any of subtest, its purpose is to figure out how many subtests are in the test. The subsequent executions will run subtests one by one, eventualy each in its own process.
+When `SUBTEST("name")` or `REPEATED_SUBTEST("name", count)` is used, the whole test is run several times. The first run does not execute any of subtest, its purpose is to figure out how many subtests are in the test. The subsequent executions will run subtests one by one, eventualy each in its own process.
 
 Note: all asserting and checking macros can be used deeper in the stack, not just in the top level test function.
 
@@ -84,7 +84,7 @@ TEST(first) {
 
 TEST(second) {
     prepareMagic();
-    REPEATED_SUBTEST(magic, 6) {
+    REPEATED_SUBTEST("magic", 6) {
         int value = magicFunction(SUBTEST_NO);
         DEBUG_MSG("The magic value is %d", value);
         ASSERT(value > SUBTEST_NO);
@@ -94,11 +94,11 @@ TEST(second) {
 
 TEST(third) {
     prepareMagic();
-    SUBTEST(dark) {
+    SUBTEST("dark") {
         int value = darkMagic();
         ASSERT(value == -1);
     }
-    SUBTEST(light) {
+    SUBTEST("light") {
         int value = lightMagic();
         ASSERT(value == 1);
     }

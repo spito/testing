@@ -9,13 +9,13 @@ TEST(prvni) {
 }
 
 TEST(druhy) {
-    SUBTEST(sub1) {
+    SUBTEST("sub1") {
         ASSERT(1);
     }
-    SUBTEST(sub2) {
+    SUBTEST("sub2") {
         ASSERT(0);
     }
-    SUBTEST(sub3) {
+    SUBTEST("sub3") {
         ASSERT(1);
     }
 }
