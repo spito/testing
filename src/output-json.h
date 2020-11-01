@@ -1,9 +1,9 @@
 #ifndef CUT_OUTPUT_JSON_H
 #define CUT_OUTPUT_JSON_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
+#include "declarations.h"
+
+CUT_NS_BEGIN
 
 struct cut_TestAttributes_json {
     int subtests;
@@ -191,5 +191,7 @@ CUT_PRIVATE void cut_InitOutput_json(struct cut_Shepherd *shepherd) {
     shepherd->finalize = cut_Finalize_json;
     shepherd->clear = cut_Clear_json;
 }
+
+CUT_NS_END
 
 #endif

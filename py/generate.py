@@ -8,30 +8,22 @@ Run this program as `py/generate.py src/core.h 1header/cut.h`
 import os
 import re
 import sys
+from enum import Enum
 
 INCLUDE = re.compile('^# *include "(.+\.h)"')
-
-class Global(object):
-    def __init__(self):
-        self._content = []
-
-    def add(self, line):
-        self._content.append(line)
-
-    def content(self):
-        return ''.join(self._content)
-
 
 class Context(object):
     def __init__(self, path, comment):
         self._directory = os.path.dirname(path)
         self._name = os.path.basename(path)
         self._comment = comment
-        self._global = Global()
+        self._top = self
+        self._content = []
+        self._processed = set()
 
     def inherit(self, path):
         new = Context(os.path.join(self._directory, path), self._comment)
-        new._global = self._global
+        new._top = self._top
         return new
 
     def file(self):
@@ -40,10 +32,11 @@ class Context(object):
     def addLine(self, l):
         if l[-1] != '\n':
             l += '\n'
-        self._global.add(l)
+        self._top._content.append(l)
 
     def addFile(self, name):
         ctx = self.inherit(name)
+        self._top._processed.add(name)
         if self._comment:
             self.addLine('// 1hc substitution of {}\n'.format(ctx.file()))
         return ctx
@@ -52,24 +45,32 @@ class Context(object):
         self.addLine('#error "file {} was not present in the current build"'.format(self.file()))
 
     def content(self):
-        return self._global.content()
+        return ''.join(self._top._content)
+
+    def alreadyProcessed(self, name):
+        return True if name in self._top._processed else False
+
+    def processFile(self, name):
+        self._top._processed.add(name)
 
 
-def examineLine(line):
+def examineLine(line, context):
     result = INCLUDE.match(line)
     if not result:
-        return None
-    return result.group(1)
+        return (False, '')
+    name = result.group(1)
+    return (context.alreadyProcessed(name), name)
 
 
 def processFile(context):
     try:
         with open(context.file(), 'r') as f:
             for line in f:
-                include = examineLine(line)
-                if include:
-                    
-                    processFile(context.addFile(include))
+                ignore, name = examineLine(line, context)
+                if ignore:
+                    continue
+                if name:
+                    processFile(context.addFile(name))
                 else:
                     context.addLine(line)
     except (OSError, IOError) as e:

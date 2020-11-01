@@ -1,9 +1,9 @@
 #ifndef CUT_MESSAGES_H
 #define CUT_MESSAGES_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
+#include "declarations.h"
+
+CUT_NS_BEGIN
 
 CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
     size_t remaining = message->serializedLength;
@@ -334,5 +334,7 @@ CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result,
     result->status = cut_RESULT_FAILED;
     return 1;
 }
+
+CUT_NS_END
 
 #endif // CUT_MESSAGES_H

@@ -1,9 +1,14 @@
 #ifndef CUT_WINDOWS_H
 #define CUT_WINDOWS_H
 
-# include <Windows.h>
-# include <io.h>
-# include <fcntl.h>
+#include <Windows.h>
+#include <io.h>
+#include <fcntl.h>
+
+#include "declarations.h"
+#include "globals.h"
+
+CUT_NS_BEGIN
 
 CUT_PRIVATE HANDLE cut_jobGroup;
 
@@ -223,5 +228,7 @@ CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const ch
         SetConsoleTextAttribute(stdOut, info.wAttributes);
     return rv;
 }
+
+CUT_NS_END
 
 #endif // CUT_WINDOWS_H

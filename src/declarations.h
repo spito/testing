@@ -6,6 +6,9 @@
 
 #include "definitions.h"
 #include "os-specific.h"
+#include "public-declarations.h"
+
+CUT_NS_BEGIN
 
 struct cut_Info {
     char *message;
@@ -58,16 +61,6 @@ struct cut_UnitResult {
     int signal;
     struct cut_Info *debug;
     struct cut_Info *check;
-};
-
-struct cut_Settings {
-    const char *dummy;
-    int timeout;
-    int timeoutDefined;
-    int suppress;
-    double points;
-    const char **needs;
-    unsigned long needSize;
 };
 
 struct cut_UnitTest {
@@ -168,7 +161,7 @@ struct cut_EnqueuePair {
 
 typedef void(*cut_Instance)(int *, int);
 typedef void(*cut_GlobalTear)();
-void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, void *settings);
+void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, struct cut_Settings *settings);
 void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
 void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
@@ -264,5 +257,7 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
 
 int cut_File(FILE *file, const char *content);
 CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text);
+
+CUT_NS_END
 
 #endif // CUT_DECLARATIONS_H

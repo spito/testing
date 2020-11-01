@@ -1,13 +1,11 @@
 #ifndef CUT_OUTPUT_H
 #define CUT_OUTPUT_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
-
+#include "declarations.h"
 #include "output-json.h"
 #include "output-standard.h"
 
+CUT_NS_BEGIN
 
 CUT_PRIVATE const char *cut_GetStatus(const struct cut_UnitResult *result, enum cut_Colors *color) {
     static const char *unknown = "UNKNOWN";
@@ -116,5 +114,6 @@ CUT_PRIVATE const char *cut_ReturnCode(int returnCode) {
 CUT_PRIVATE void cut_ShepherdNoop(struct cut_Shepherd *shepherd, ...) {
 }
 
+CUT_NS_END
 
 #endif

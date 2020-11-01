@@ -1,12 +1,10 @@
 #ifndef CUT_EXECUTION_H
 #define CUT_EXECUTION_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
+#include "declarations.h"
+#include "globals.h"
 
-# ifdef __cplusplus
-} // extern C
+#if defined(__cplusplus)
 
 #  include <stdexcept>
 #  include <typeinfo>
@@ -34,8 +32,10 @@ cleanup:
     cut_ResumeIO();
 }
 
-extern "C" {
 # else
+
+CUT_NS_BEGIN
+
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (setjmp(cut_executionPoint))
@@ -50,8 +50,12 @@ cleanup:
         cut_globalTearDown();
     cut_ResumeIO();
 }
+
+CUT_NS_END
+
 # endif
 
+CUT_NS_BEGIN
 
 CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, int testId, int subtest,
                                      struct cut_UnitResult *result) {
@@ -343,5 +347,7 @@ cleanup:
     cut_ClearShepherd(&shepherd);
     return returnValue;
 }
+
+CUT_NS_END
 
 #endif // CUT_EXECUTION_H
