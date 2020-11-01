@@ -1,15 +1,20 @@
 #ifndef CUT_UNIX_H
 #define CUT_UNIX_H
 
-# include <sys/types.h>
-# include <sys/sysctl.h>
-# include <unistd.h>
-# include <sys/stat.h>
-# include <sys/wait.h>
-# include <fcntl.h>
-# include <signal.h>
-# include <errno.h>
-# include <assert.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+
+#include "declarations.h"
+#include "globals.h"
+
+CUT_NS_BEGIN
 
 CUT_PRIVATE int cut_IsTerminalOutput() {
     return isatty(fileno(stdout));
@@ -199,4 +204,7 @@ CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const ch
     }
     return fprintf(output, "%s%s%s", prefix, text, suffix);
 }
+
+CUT_NS_END
+
 #endif // CUT_UNIX_H

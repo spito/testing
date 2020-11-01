@@ -1,9 +1,9 @@
 #ifndef CUT_QUEUE_H
 #define CUT_QUEUE_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
+#include "declarations.h"
+
+CUT_NS_BEGIN
 
 CUT_PRIVATE void cut_InitQueue(struct cut_Queue *queue) {
     queue->size = 0;
@@ -151,5 +151,7 @@ CUT_PRIVATE struct cut_QueueItem *cut_QueueAddTest(struct cut_Queue *queue, stru
     memset(&toAdd->depending, 0, sizeof(struct cut_Queue));
     return item;
 }
+
+CUT_NS_END
 
 #endif

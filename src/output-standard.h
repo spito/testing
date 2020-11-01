@@ -1,10 +1,9 @@
 #ifndef CUT_OUTPUT_STD_H
 #define CUT_OUTPUT_STD_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
+#include "declarations.h"
 
+CUT_NS_BEGIN
 
 struct cut_TestAttributes_std {
     int subtests;
@@ -240,5 +239,7 @@ CUT_PRIVATE void cut_InitOutput_std(struct cut_Shepherd *shepherd) {
     shepherd->clear = cut_Clear_std;
 }
 
+
+CUT_NS_END
 
 #endif

@@ -8,6 +8,8 @@
 
 #include "definitions.h"
 
+CUT_NS_BEGIN
+
 #define CUT_MAX_SLICE_COUNT 255
 #define CUT_MAX_SERIALIZED_LENGTH (256*256-1)
 #define CUT_MAX_SIGNAL_SAFE_SERIALIZED_LENGTH 512
@@ -232,5 +234,7 @@ CUT_PRIVATE size_t cut_FragmentReceiveProcessed(cut_FragmentReceiveStatus *statu
         return 0;
     return status->structured.processed;
 }
+
+CUT_NS_END
 
 #endif

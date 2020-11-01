@@ -1,13 +1,19 @@
 #ifndef CUT_LINUX_H
 #define CUT_LINUX_H
 
-# include <unistd.h>
-# include <sys/stat.h>
-# include <sys/wait.h>
-# include <sys/types.h>
-# include <sys/prctl.h>
-# include <fcntl.h>
-# include <signal.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/prctl.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+
+#include "declarations.h"
+
+CUT_NS_BEGIN
 
 CUT_PRIVATE int cut_IsTerminalOutput() {
     return isatty(fileno(stdout));
@@ -207,4 +213,7 @@ CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const ch
     }
     return fprintf(output, "%s%s%s", prefix, text, suffix);
 }
+
+CUT_NS_END
+
 #endif // CUT_LINUX_H

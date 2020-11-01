@@ -1,9 +1,9 @@
 #ifndef CUT_GLOBALS_H
 #define CUT_GLOBALS_H
 
-#ifndef CUT_MAIN
-#error "cannot be standalone"
-#endif
+#include "declarations.h"
+
+CUT_NS_BEGIN
 
 #define CUT_MAX_LOCAL_MESSAGE_LENGTH 4096
 
@@ -29,5 +29,7 @@ CUT_PRIVATE jmp_buf cut_executionPoint;
 CUT_PRIVATE int cut_localMessageSize = 0;
 CUT_PRIVATE char *cut_localMessageCursor = NULL;
 CUT_PRIVATE char cut_localMessage[CUT_MAX_LOCAL_MESSAGE_LENGTH];
+
+CUT_NS_END
 
 #endif // CUT_GLOBALS_H
