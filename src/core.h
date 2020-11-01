@@ -22,9 +22,9 @@ Should not harm elsewhere.
 # define REPEATED_SUBTEST(name, count) if (0)
 # define SUBTEST_NO 0
 # define DEBUG_MSG(...) (void)0
-# define TEST_POINTS(n) 
-# define TEST_TIMEOUT(n) 
-# define TEST_SUPPRESS 
+# define TEST_POINTS(n)
+# define TEST_TIMEOUT(n)
+# define TEST_SUPPRESS
 # define TEST_NEEDS(...)
 # define TEST_SETTINGS(...)
 
@@ -96,17 +96,6 @@ Should not harm elsewhere.
     if (!cut_Input(content)) {                                                  \
         cut_Stop("cannot set contents a an input file", __FILE__, __LINE__);    \
     } } while(0)
-/*
-# define KONTR_TEST(name, points, prerequisities)                               \
-    void cut_instance_ ## name(int *, int);                                     \
-    CUT_CONSTRUCTOR(cut_Register ## name) {                                     \
-        const char *required[] = prerequisities;                                \
-        size_t requiredSize = sizeof(required) / sizeof(*required);             \
-        cut_Register(cut_instance_ ## name, #name, points, required,            \
-                     requiredSize __FILE__, __LINE__);                          \
-    }
-    void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest), CUT_UNUSED(int cut_current))
-*/
 
 # define TEST_POINTS(n) .points = n
 # define TEST_TIMEOUT(n) .timeout = n, .timeoutDefined = 1
@@ -154,13 +143,13 @@ Should not harm elsewhere.
 
 # define SUBTEST(name)                                                          \
     if (++*cut_subtest == cut_current)                                          \
-        cut_Subtest(0, #name);                                                  \
+        cut_Subtest(0, name);                                                   \
     if (*cut_subtest == cut_current)
 
 # define REPEATED_SUBTEST(name, count)                                          \
     *cut_subtest = (count);                                                     \
     if (cut_current && count)                                                   \
-        cut_Subtest(cut_current, #name);                                        \
+        cut_Subtest(cut_current, name);                                         \
     if (cut_current && count)
 
 # define SUBTEST_NO cut_current
