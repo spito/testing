@@ -64,7 +64,7 @@ CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes) {
 }
 
 CUT_PRIVATE void NTAPI cut_TimerCallback(CUT_UNUSED(void *param), CUT_UNUSED(BOOLEAN timerEvent)) {
-    cut_Timeouted();
+    cut_Timedout();
     ExitProcess(cut_NORMAL_EXIT);
 }
 

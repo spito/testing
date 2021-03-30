@@ -140,7 +140,7 @@ CUT_PRIVATE void cut_StopException(const char *type, const char *text) {
     cut_FragmentClear(&message);
 }
 
-CUT_PRIVATE void cut_Timeouted() {
+CUT_PRIVATE void cut_Timedout() {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_TIMEOUT);
     cut_FragmentSignalSafeSerialize(&message) || cut_FatalExit("cannot serialize timeout:fragment");

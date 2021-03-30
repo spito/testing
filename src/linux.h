@@ -59,7 +59,7 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
 }
 
 CUT_PRIVATE void cut_SigAlrm(CUT_UNUSED(int signum)) {
-    cut_Timeouted();
+    cut_Timedout();
     _exit(cut_NORMAL_EXIT);
 }
 

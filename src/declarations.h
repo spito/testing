@@ -211,10 +211,10 @@ CUT_PRIVATE void cut_SendOK(int counter);
 void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
 void cut_Stop(const char *text, const char *file, size_t line);
 void cut_Check(const char *text, const char *file, size_t line);
-#  ifdef __cplusplus
+#ifdef __cplusplus
 CUT_PRIVATE void cut_StopException(const char *type, const char *text);
-#  endif
-CUT_PRIVATE void cut_Timeouted();
+#endif
+CUT_PRIVATE void cut_Timedout();
 void cut_Subtest(int number, const char *name);
 CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result);
 CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name);
