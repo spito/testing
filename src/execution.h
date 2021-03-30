@@ -6,9 +6,9 @@
 
 #if defined(__cplusplus)
 
-#  include <stdexcept>
-#  include <typeinfo>
-#  include <string>
+# include <stdexcept>
+# include <typeinfo>
+# include <string>
 
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
@@ -32,7 +32,7 @@ cleanup:
     cut_ResumeIO();
 }
 
-# else
+#else
 
 CUT_NS_BEGIN
 
@@ -53,7 +53,7 @@ cleanup:
 
 CUT_NS_END
 
-# endif
+#endif
 
 CUT_NS_BEGIN
 
