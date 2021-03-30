@@ -1,0 +1,25 @@
+[  1] First..................................................................OK
+    debug messages:
+      First (needs-fail.c:10)
+
+[  2] Second.................................................................OK
+    debug messages:
+      Second (needs-fail.c:14)
+
+[  3] Third................................................................FAIL
+    check '0' (needs-fail.c:19)
+    debug messages:
+      Th"ird (needs-fail.c:18)
+
+[  4] A.................................................................SKIPPED
+[  5] B.................................................................SKIPPED
+
+Summary:
+  tests:          5
+  succeeded:      2
+  filtered out:   0
+  suppressed:     0
+  skipped:        2
+  failed:         1
+
+Points:           0.00

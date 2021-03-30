@@ -6,14 +6,17 @@
         assert '0' (simple-subtest-fail.c:12)
 
     S3.......................................................................OK
-    S4.....................................................................FAIL
+    S4................................................................SIGNALLED
         signal: SIGSEGV (11)
 
 [  1] withSubtest (overall)................................................FAIL
 
-
 Summary:
-  tests:       1
-  succeeded:   0
-  skipped:     0
-  failed:      1
+  tests:          1
+  succeeded:      0
+  filtered out:   0
+  suppressed:     0
+  skipped:        0
+  failed:         1
+
+Points:           0.00

@@ -7,9 +7,12 @@
               #6.............................................................OK
 [  1] repeated (overall).....................................................OK
 
-
 Summary:
-  tests:       1
-  succeeded:   1
-  skipped:     0
-  failed:      0
+  tests:          1
+  succeeded:      1
+  filtered out:   0
+  suppressed:     0
+  skipped:        0
+  failed:         0
+
+Points:           0.00

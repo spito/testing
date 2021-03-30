@@ -5,7 +5,11 @@
 
 
 Summary:
-  tests:       1
-  succeeded:   0
-  skipped:     0
-  failed:      1
+  tests:          1
+  succeeded:      0
+  filtered out:   0
+  suppressed:     0
+  skipped:        0
+  failed:         1
+
+Points:           0.00

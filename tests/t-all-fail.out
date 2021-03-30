@@ -6,26 +6,31 @@
 
     sub3.....................................................................OK
 [  2] druhy (overall)......................................................FAIL
-
 [  3] treti................................................................FAIL
     assert '0' (all-fail.c:24)
 
-[  4] ctvrty...............................................................FAIL
+[  4] ctvrty..........................................................SIGNALLED
     signal: SIGSEGV (11)
     debug messages:
       co to je? asi 6 (all-fail.c:28)
       tohle jeste uvidim (all-fail.c:30)
 
-[  5] paty.................................................................FAIL
-    timeouted (3 s)
+[  5] paty............................................................TIMED OUT
+    timed out (1 s)
 
 [  6] sesty..................................................................OK
-[  7] osm..................................................................FAIL
+[  7] osm..............................................................NON ZERO
     return code: 10
+    debug messages:
+      sedmy test neni (all-fail.c:47)
 
 
 Summary:
-  tests:       7
-  succeeded:   2
-  skipped:     0
-  failed:      5
+  tests:          7
+  succeeded:      2
+  filtered out:   0
+  suppressed:     0
+  skipped:        0
+  failed:         5
+
+Points:           0.00
