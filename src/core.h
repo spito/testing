@@ -1,6 +1,12 @@
 #ifndef CUT_CORE_H
 #define CUT_CORE_H
 
+/* XXX: make it work on MacOS, broken otherwise due to some intereferences which prevent to define u_XXX types required in sysctl.h
+Should not harm elsewhere.
+ */
+
+#include <sys/types.h>
+
 #if !defined(CUT) && !defined(DEBUG) && !defined(CUT_MAIN)
 
 # define ASSERT(e) (void)0

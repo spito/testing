@@ -1,13 +1,15 @@
 #ifndef CUT_UNIX_H
 #define CUT_UNIX_H
 
+# include <sys/types.h>
+# include <sys/sysctl.h>
 # include <unistd.h>
 # include <sys/stat.h>
 # include <sys/wait.h>
-# include <sys/types.h>
 # include <fcntl.h>
 # include <signal.h>
 # include <errno.h>
+# include <assert.h>
 
 CUT_PRIVATE int cut_IsTerminalOutput() {
     return isatty(fileno(stdout));
@@ -149,33 +151,24 @@ cleanup:
 }
 
 CUT_PRIVATE int cut_IsDebugger() {
-    const char *desired = "TracerPid:";
-    const char *found = NULL;
-    int tracerPid;
-    int result = 0;
-    int status = open("/proc/self/status", O_RDONLY);
-    if (status < 0)
-        return 0;
+    int                 junk;
+    int                 mib[4];
+    struct kinfo_proc   info;
+    size_t              size;
 
-    char *buffer;
-    size_t length;
-    
-    if (!cut_ReadWholeFile(status, &buffer, &length))
-        goto cleanup;
+    info.kp_proc.p_flag = 0;
 
-    found = strstr(buffer, desired);
-    if (!found)
-        goto cleanup;
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC;
+    mib[2] = KERN_PROC_PID;
+    mib[3] = getpid();
 
-    if (!sscanf(found + strlen(desired), "%i", &tracerPid))
-        goto cleanup;
+    size = sizeof(info);
+    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+    assert(junk == 0);
 
-    if (tracerPid)
-        result = 1;
-cleanup:
-    free(buffer);
-    close(status);
-    return result;
+
+    return (info.kp_proc.p_flag & P_TRACED);
 }
 
 CUT_PRIVATE int cut_PrintColorized(enum cut_Colors color, const char *text) {
