@@ -141,7 +141,7 @@ CUT_PRIVATE int cut_ReadWholeFile(int fd, char **buffer, size_t *length) {
     if (!rv)
         result = 1;
     (*buffer)[*length] = '\0';
-cleanup:
+
     lseek(fd, offset, SEEK_SET);
     return result;
 }
@@ -158,30 +158,39 @@ int cut_File(FILE *f, const char *content) {
         cut_FatalExit("cannot read whole file");
 
     result = length == fileLength && memcmp(content, buf, length) == 0;
-cleanup:
+
     free(buf);
     return result;
 }
 
 CUT_PRIVATE int cut_IsDebugger() {
-    int                 junk;
-    int                 mib[4];
-    struct kinfo_proc   info;
-    size_t              size;
+    const char *desired = "TracerPid:";
+    const char *found = NULL;
+    int tracerPid;
+    int result = 0;
+    int status = open("/proc/self/status", O_RDONLY);
+    if (status < 0)
+        return 0;
 
-    info.kp_proc.p_flag = 0;
+    char *buffer;
+    size_t length;
 
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_PROC;
-    mib[2] = KERN_PROC_PID;
-    mib[3] = getpid();
+    if (!cut_ReadWholeFile(status, &buffer, &length))
+        goto cleanup;
 
-    size = sizeof(info);
-    junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
-    assert(junk == 0);
+    found = strstr(buffer, desired);
+    if (!found)
+        goto cleanup;
 
+    if (!sscanf(found + strlen(desired), "%i", &tracerPid))
+        goto cleanup;
 
-    return (info.kp_proc.p_flag & P_TRACED);
+    if (tracerPid)
+        result = 1;
+cleanup:
+    free(buffer);
+    close(status);
+    return result;
 }
 
 CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text) {

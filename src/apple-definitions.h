@@ -1,5 +1,7 @@
-#ifndef CUT_UNIX_DEFINE_H
-#define CUT_UNIX_DEFINE_H
+#ifndef CUT_APPLE_DEFINE_H
+#define CUT_APPLE_DEFINE_H
+
+#include <sys/types.h>
 
 #if defined(__GNUC__) || defined(__clang)
 # define CUT_NORETURN __attribute__((noreturn))
@@ -15,4 +17,4 @@
 # pragma GCC system_header
 #endif
 
-#endif // CUT_UNIX_DEFINE_H
+#endif // CUT_APPLE_DEFINE_H

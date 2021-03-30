@@ -1,17 +1,18 @@
-#ifndef CUT_LINUX_H
-#define CUT_LINUX_H
+#ifndef CUT_APPLE_H
+#define CUT_APPLE_H
 
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/types.h>
-#include <sys/prctl.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
+#include <errno.h>
 
 #include "declarations.h"
+#include "globals.h"
 
 CUT_NS_BEGIN
 
@@ -79,11 +80,7 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     if (pid == -1)
         cut_FatalExit("cannot fork");
     if (!pid) {
-        r = prctl(PR_SET_PDEATHSIG, SIGTERM);
-        if (r == -1)
-            cut_FatalExit("cannot set child death signal");
-        if (getppid() != parentPid)
-            exit(cut_ERROR_EXIT);
+        /// TODO: missing feature - kill child when parent dies
         close(pipeRead) != -1 || cut_FatalExit("cannot close file");
         cut_pipeWrite = pipeWrite;
 
@@ -103,9 +100,12 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     }
     // parent process only
     int status = 0;
-    close(pipeWrite) != -1 || cut_FatalExit("cannot close file");
+    close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
     cut_PipeReader(pipeRead, result);
-    waitpid(pid, &status, 0) != -1 || cut_FatalExit("cannot wait for unit");
+    do {
+        r = waitpid( pid, &status, 0 );
+    } while (r == -1 && errno == EINTR);
+    r != -1 || cut_FatalExit("cannot wait for unit");
     result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
     result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
     if (result->signal)
@@ -126,7 +126,7 @@ CUT_PRIVATE int cut_ReadWholeFile(int fd, char **buffer, size_t *length) {
     long offset = lseek(fd, 0, SEEK_CUR);
     lseek(fd, 0, SEEK_SET);
 
-    int rv;
+    int rv; 
     while ((rv = read(fd, *buffer + *length, capacity - *length - 1)) > 0) {
         *length += rv;
         if (*length + 1 == capacity) {
@@ -141,7 +141,7 @@ CUT_PRIVATE int cut_ReadWholeFile(int fd, char **buffer, size_t *length) {
     if (!rv)
         result = 1;
     (*buffer)[*length] = '\0';
-cleanup:
+
     lseek(fd, offset, SEEK_SET);
     return result;
 }
@@ -158,39 +158,28 @@ int cut_File(FILE *f, const char *content) {
         cut_FatalExit("cannot read whole file");
 
     result = length == fileLength && memcmp(content, buf, length) == 0;
-cleanup:
+
     free(buf);
     return result;
 }
 
 CUT_PRIVATE int cut_IsDebugger() {
-    const char *desired = "TracerPid:";
-    const char *found = NULL;
-    int tracerPid;
-    int result = 0;
-    int status = open("/proc/self/status", O_RDONLY);
-    if (status < 0)
+    int                 mib[4];
+    struct kinfo_proc   info;
+    size_t              size;
+
+    info.kp_proc.p_flag = 0;
+
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC;
+    mib[2] = KERN_PROC_PID;
+    mib[3] = getpid();
+
+    size = sizeof(info);
+    if (sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0))
         return 0;
 
-    char *buffer;
-    size_t length;
-
-    if (!cut_ReadWholeFile(status, &buffer, &length))
-        goto cleanup;
-
-    found = strstr(buffer, desired);
-    if (!found)
-        goto cleanup;
-
-    if (!sscanf(found + strlen(desired), "%i", &tracerPid))
-        goto cleanup;
-
-    if (tracerPid)
-        result = 1;
-cleanup:
-    free(buffer);
-    close(status);
-    return result;
+    return !!(info.kp_proc.p_flag & P_TRACED);
 }
 
 CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text) {
@@ -216,4 +205,4 @@ CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const ch
 
 CUT_NS_END
 
-#endif // CUT_LINUX_H
+#endif // CUT_APPLE_H

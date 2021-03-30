@@ -16,7 +16,9 @@
 
 #if defined(__linux__)
 # include "linux.h"
-#elif defined(__APPLE__) || defined(__unix)
+#elif defined(__APPLE__)
+# include "apple.h"
+#elif defined(__unix)
 # include "unix.h"
 #elif defined(_WIN32)
 # include "windows.h"
