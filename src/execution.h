@@ -276,6 +276,7 @@ CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cu
     shepherd->skipped = 0;
     shepherd->failed = 0;
     shepherd->points = 0;
+    shepherd->maxPoints = 0;
     shepherd->listTests = (void (*)(const struct cut_Shepherd *)) cut_ShepherdNoop;
     shepherd->startTest = (void (*)(struct cut_Shepherd *, int)) cut_ShepherdNoop;
     shepherd->startSubTests = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;

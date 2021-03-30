@@ -141,6 +141,7 @@ CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId
         putc('\n', shepherd->output);
     fflush(shepherd->output);
 
+    shepherd->maxPoints += cut_unitTests.tests[testId].settings->points;
     switch (result->status) {
     case cut_RESULT_OK:
         ++shepherd->succeeded;
@@ -192,16 +193,20 @@ CUT_PRIVATE void cut_Finalize_std(struct cut_Shepherd *shepherd) {
             "  filtered out: %3i\n"
             "  suppressed:   %3i\n"
             "  skipped:      %3i\n"
-            "  failed:       %3i\n"
-            "\n"
-            "Points:         %6.2f\n",
+            "  failed:       %3i\n",
             cut_unitTests.size,
             shepherd->succeeded,
             shepherd->filteredOut,
             shepherd->suppressed,
             shepherd->skipped,
-            shepherd->failed,
+            shepherd->failed);
+
+    if (0.000000001 <= shepherd->maxPoints) {
+        fprintf(shepherd->output,
+            "\n"
+            "Points:         %6.2f\n",
             shepherd->points);
+    }
 }
 
 CUT_PRIVATE void cut_Clear_std(struct cut_Shepherd *shepherd) {

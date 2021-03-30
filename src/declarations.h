@@ -133,6 +133,7 @@ struct cut_Shepherd {
     int skipped;
 
     double points;
+    double maxPoints;
 
     int pipeWrite;
     int pipeRead;
