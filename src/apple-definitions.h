@@ -2,6 +2,7 @@
 #define CUT_APPLE_DEFINE_H
 
 #include <sys/types.h>
+#include <sys/sysctl.h>
 
 #if defined(__GNUC__) || defined(__clang)
 # define CUT_NORETURN __attribute__((noreturn))
