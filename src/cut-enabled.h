@@ -1,8 +1,6 @@
 #ifndef CUT_ENABLED_H
 #define CUT_ENABLED_H
 
-#define _POSIX_C_SOURCE 199309L
-
 #include "os-specific.h"
 #include "public-declarations.h"
 

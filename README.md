@@ -30,9 +30,6 @@ To actually enable tests, you have to either `#define CUT` or `#define DEBUG` to
 #include <cut.h>
 ```
 
-> Note: when defining `CUT_MAIN`, place `#include <cut.h>` before any other standard `#include`. _CUT_ needs to `#define _POSIX_C_SOURCE 199309L` and `#define _XOPEN_SOURCE 500` to handle signals properly.
-
-
 ### Configuration options
 
 Compile time macro directives:
