@@ -61,7 +61,7 @@ class TestRunner(object):
         with open(self._outName(), 'rb') as f:
             x = f.read(len(output) + 1) == output and not self._statusUnknown
             if not x:
-                print(output)
+                print(output.decode('utf8'))
             return x
 
 
