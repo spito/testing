@@ -59,7 +59,11 @@ class TestRunner(object):
 
     def _compare(self, output):
         with open(self._outName(), 'rb') as f:
-            return f.read(len(output) + 1) == output and not self._statusUnknown
+            x = f.read(len(output) + 1) == output and not self._statusUnknown
+            if not x:
+                print(output)
+            return x
+
 
 
 def isexecutable(path):
