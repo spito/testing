@@ -42,7 +42,6 @@ typedef union {
     } structured;
     uint64_t raw;
 } cut_FragmentReceiveStatus;
-#define CUT_FRAGMENT_RECEIVE_STATUS {0}
 
 CUT_PRIVATE void cut_FragmentInit(struct cut_Fragment *fragments, int id) {
     fragments->id = id;

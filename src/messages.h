@@ -18,7 +18,8 @@ CUT_PRIVATE int cut_SendMessage(const struct cut_Fragment *message) {
 }
 
 CUT_PRIVATE int cut_ReadMessage(int pipeRead, struct cut_Fragment *message) {
-    cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
+    cut_FragmentReceiveStatus status;
+    memset(&status, 0, sizeof(status));
 
     message->serialized = NULL;
     message->serializedLength = 0;
@@ -172,7 +173,8 @@ CUT_PRIVATE int cut_ReadLocalMessage(int pipeRead, struct cut_Fragment *message)
     if (cut_localMessageCursor >= cut_localMessage + cut_localMessageSize)
         return 0;
 
-    cut_FragmentReceiveStatus status = CUT_FRAGMENT_RECEIVE_STATUS;
+    cut_FragmentReceiveStatus status;
+    memset(&status, 0, sizeof(status));
     message->serialized = NULL;
     message->serializedLength = 0;
 
