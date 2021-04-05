@@ -75,10 +75,7 @@ CUT_PRIVATE void cut_RunUnit(int testId, int subtest, struct cut_UnitResult *res
         close(cut_pipeRead) != -1 || cut_FatalExit("cannot close file");
 
         if (cut_arguments.timeout) {
-            struct sigaction sa;
-            memset(&sa, 0, sizeof(sa));
-            sa.sa_handler = cut_SigAlrm;
-            sigaction(SIGALRM, &sa, NULL);
+            signal(SIGALRM, cut_SigAlrm);
             alarm(cut_arguments.timeout);
         }
         cut_ExceptionBypass(testId, subtest);
