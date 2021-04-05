@@ -6,7 +6,6 @@
 CUT_NS_BEGIN
 
 struct cut_Settings {
-    const char *dummy;
     int timeout;
     int timeoutDefined;
     int suppress;

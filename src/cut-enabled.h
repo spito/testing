@@ -37,7 +37,7 @@
 #define TEST(name, ...)                                                                 \
     void cut_instance_ ## name(int *, int);                                             \
     CUT_CONSTRUCTOR(cut_Register ## name) {                                             \
-        static struct cut_Settings settings = {};                                       \
+        static struct cut_Settings settings = {0, 0, 0, 0.0, NULL, 0};                  \
         CUT_APPLY_ARGS(dummy, ## __VA_ARGS__ );                                         \
         settings.needSize = sizeof(cut_needs)/sizeof(*cut_needs);                       \
         settings.needs = cut_needs;                                                     \
