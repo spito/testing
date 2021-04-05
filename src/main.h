@@ -28,6 +28,8 @@
 
 CUT_NS_BEGIN
 
+const char *cut_needs[1] = {""};
+
 CUT_NORETURN int cut_FatalExit(const char *reason) {
     if (cut_outputsRedirected) {
         FILE *log = fopen(cut_emergencyLog, "w");

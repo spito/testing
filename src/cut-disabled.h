@@ -17,6 +17,5 @@
 #define TEST_TIMEOUT(n)
 #define TEST_SUPPRESS
 #define TEST_NEEDS(...)
-#define TEST_SETTINGS(...)
 
 #endif

@@ -24,27 +24,23 @@
 
 #define INPUT(content) do {                                                             \
     if (!cut_Input(content)) {                                                          \
-        cut_Stop("cannot set contents a an input file", __FILE__, __LINE__);            \
+        cut_Stop("cannot set contents as an input file", __FILE__, __LINE__);            \
     } } while(0)
 
-#define TEST_POINTS(n) .points = n
-#define TEST_TIMEOUT(n) .timeout = n, .timeoutDefined = 1
-#define TEST_SUPPRESS .suppress = 1
-#define TEST_NEEDS(...) { "", ## __VA_ARGS__ }
-#define TEST_SETTINGS(...) { .dummy = "", ## __VA_ARGS__ }
+#define TEST_POINTS(n) settings.points = n
+#define TEST_TIMEOUT(n) settings.timeout = n, settings.timeoutDefined = 1
+#define TEST_SUPPRESS settings.suppress = 1
+#define TEST_NEEDS(...) (void)0 ; static const char *cut_needs[] = {"", ## __VA_ARGS__ }; (void)0
 
-#define CUT_GET_NEEDS2(dummy, settings, needs, ...) needs
-#define CUT_GET_NEEDS(dummy, ...) CUT_GET_NEEDS2(dummy, ## __VA_ARGS__, {""}, {""}, 0)
-#define CUT_GET_SETTINGS2(dummy, settings, needs, ...) settings
-#define CUT_GET_SETTINGS(dummy, ...) CUT_GET_SETTINGS2(dummy, ## __VA_ARGS__, { .dummy = ""}, { .dummy = ""}, 0)
+#define CUT_APPLY_ARGS(dummy, ...) (void)0, ## __VA_ARGS__ ;
 
 #define TEST(name, ...)                                                                 \
     void cut_instance_ ## name(int *, int);                                             \
     CUT_CONSTRUCTOR(cut_Register ## name) {                                             \
-        static struct cut_Settings settings = CUT_GET_SETTINGS(dummy, ## __VA_ARGS__);  \
-        static const char *needs[] = CUT_GET_NEEDS(dummy, ## __VA_ARGS__);              \
-        settings.needSize = sizeof(needs)/sizeof(*needs);                               \
-        settings.needs = needs;                                                         \
+        static struct cut_Settings settings = {};                                       \
+        CUT_APPLY_ARGS(dummy, ## __VA_ARGS__ );                                         \
+        settings.needSize = sizeof(cut_needs)/sizeof(*cut_needs);                       \
+        settings.needs = cut_needs;                                                     \
         cut_Register(cut_instance_ ## name,                                             \
                      #name, __FILE__, __LINE__, &settings);                             \
     }                                                                                   \
@@ -84,6 +80,7 @@
 
 CUT_NS_BEGIN
 
+extern const char *cut_needs[1];
 typedef void(*cut_Instance)(int *, int);
 typedef void(*cut_GlobalTear)();
 void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, struct cut_Settings *settings);
