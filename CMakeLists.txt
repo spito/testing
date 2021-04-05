@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(CUT)
 
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_VERBOSE_MAKEFILE ON)
+
 if(WIN32)
     add_custom_target(
         compile1header

@@ -1,12 +1,11 @@
 
 include_directories(AFTER SYSTEM "${CMAKE_SOURCE_DIR}/1header")
 
+add_definitions(-DCUT)
 if(MSVC)
-    add_definitions(-DCUT -D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 else()
-    add_definitions(-DCUT -Wall -Wextra -pedantic -ggdb3)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    add_definitions(-Wall -Wextra -pedantic -ggdb3)
 endif()
 
 add_library(main-cpp main.cpp)
