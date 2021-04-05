@@ -31,12 +31,12 @@
 #define TEST_TIMEOUT(n) .timeout = n, .timeoutDefined = 1
 #define TEST_SUPPRESS .suppress = 1
 #define TEST_NEEDS(...) { "", ## __VA_ARGS__ }
-#define TEST_SETTINGS(...) {"", ## __VA_ARGS__ }
+#define TEST_SETTINGS(...) { .dummy = "", ## __VA_ARGS__ }
 
 #define CUT_GET_NEEDS2(dummy, settings, needs, ...) needs
-#define CUT_GET_NEEDS(dummy, ...) CUT_GET_NEEDS2(dummy, ## __VA_ARGS__, {""}, {""})
+#define CUT_GET_NEEDS(dummy, ...) CUT_GET_NEEDS2(dummy, ## __VA_ARGS__, {""}, {""}, 0)
 #define CUT_GET_SETTINGS2(dummy, settings, needs, ...) settings
-#define CUT_GET_SETTINGS(dummy, ...) CUT_GET_SETTINGS2(dummy, ## __VA_ARGS__, {""}, {""})
+#define CUT_GET_SETTINGS(dummy, ...) CUT_GET_SETTINGS2(dummy, ## __VA_ARGS__, { .dummy = ""}, { .dummy = ""}, 0)
 
 #define TEST(name, ...)                                                                 \
     void cut_instance_ ## name(int *, int);                                             \
@@ -46,7 +46,7 @@
         settings.needSize = sizeof(needs)/sizeof(*needs);                               \
         settings.needs = needs;                                                         \
         cut_Register(cut_instance_ ## name,                                             \
-                     #name,  __FILE__, __LINE__, &settings);                            \
+                     #name, __FILE__, __LINE__, &settings);                             \
     }                                                                                   \
     void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest),                            \
                                CUT_UNUSED(int cut_current))
