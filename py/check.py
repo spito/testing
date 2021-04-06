@@ -61,11 +61,7 @@ class TestRunner(object):
 
     def _compare(self, output):
         with open(self._outName(), 'rb') as f:
-            x = f.read(len(output) + 1) == output and not self._statusUnknown
-            if not x:
-                print(output.decode('utf8'))
-            return x
-
+            return f.read(len(output) + 1) == output and not self._statusUnknown
 
 
 def isexecutable(path):
