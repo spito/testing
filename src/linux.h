@@ -102,7 +102,10 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     int status = 0;
     close(pipeWrite) != -1 || cut_FatalExit("cannot close file");
     cut_PipeReader(pipeRead, result);
-    waitpid(pid, &status, 0) != -1 || cut_FatalExit("cannot wait for unit");
+    do {
+        r = waitpid(pid, &status, 0);
+    while (r == -1 && errno == EINTR);
+    r != -1 || cut_FatalExit("cannot wait for unit");
     result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
     result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
     if (result->signal)
