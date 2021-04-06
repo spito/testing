@@ -1,14 +1,15 @@
 version: 1.0.{build}
-image:
+environment:
+  matrix:
+    - GENERATOR: Visual Studio 16 2019
+    - GENERATOR: MinGW makefiles
+
+    image:
 - Visual Studio 2019
 
 configuration:
 - Debug
 
-environment:
-  matrix:
-    - GENERATOR: Visual Studio 16 2019
-    - GENERATOR: MinGW makefiles
 
 init:
   - cmd: echo GENERATOR=%GENERATOR%
