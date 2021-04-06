@@ -2,9 +2,10 @@ version: 1.0.{build}
 environment:
   matrix:
     - generator: "Visual Studio 16 2019"
-      cxx_path: ""
+      platform: x64
     - generator: "MinGW Makefiles"
-      cxx_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
+      platform: mingw64
+      cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin
 
 image:
 - Visual Studio 2019
@@ -13,16 +14,13 @@ before_build:
 - ps: |
     $env:path = $env:path.replace("C:\Program Files\Git\usr\bin;", "")
     if ($env:cxx_path -ne "") {
-      $env:path += ";$env:cxx_path"
+      $env:path = "$env:cxx_path;$env:path"
     }
-    $env:root=$env:APPVEYOR_BUILD_FOLDER
-    Write-Output "env:root: $env:root"
 
 build_script:
 - ps: |
     md build
     cd build
-    & C:\MinGW\bin\gcc.exe --help
     & cmake .. -G "$env:generator"
     & cmake --build .
 
