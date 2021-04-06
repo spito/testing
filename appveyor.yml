@@ -10,6 +10,9 @@ environment:
     - GENERATOR: Visual Studio 16 2019
     - GENERATOR: MinGW makefiles
 
+init:
+  - cmd: echo GENERATOR=%GENERATOR%
+
 build_script:
   - cmd: md build
   - cmd: cd build
