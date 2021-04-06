@@ -2,11 +2,12 @@ language: cpp
 compiler:
  - clang
  - gcc
-os:
+
+ os:
  - linux
  - osx
- - windows
-script:
+
+ script:
  - mkdir build
  - cd build
  - cmake .. 
