@@ -6,15 +6,15 @@ configuration:
 - Debug
 
 before_build:
-  - mkdir build
-  - cd build
+  - 'mkdir build'
+  - 'cd build'
   - matrix:
-    - cmake -G 'Visual Studio 16 2019' ..
-    - cmake -G 'MinGW makefiles' ..
+    - 'cmake -G "Visual Studio 16 2019" ..'
+    - 'cmake -G "MinGW makefiles" ..'
 
 build:
   project: cut.sln
   verbosity: normal
 
 test_script:
-- cmake --build . --target check
+- 'cmake --build . --target check'
