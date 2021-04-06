@@ -6,7 +6,7 @@ configuration:
 - Debug
 
 environment:
-  - matrix:
+  matrix:
     - GENERATOR: Visual Studio 16 2019
     - GENERATOR: MinGW makefiles
 
