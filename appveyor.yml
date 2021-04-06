@@ -9,6 +9,7 @@ image:
 
 init:
   - cmd: echo GENERATOR=%GENERATOR%
+  - ps: echo $env:GENERATOR
 
 build_script:
   - cmd: md build
