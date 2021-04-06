@@ -10,6 +10,7 @@ before_build:
 - 'cmake -G "Visual Studio 16 2019" .'
 
 build:
+  project: cut.sln
   verbosity: normal
 
 test_script:
