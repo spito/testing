@@ -16,6 +16,7 @@ before_build:
     if ($env:cxx_path -ne "") {
       $env:path = "$env:cxx_path;$env:path"
     }
+    cp c:\Python37-x64\python.exe c:\Python37-x64\python3.exe
     & ls c:\Python37-x64
 
 build_script:
