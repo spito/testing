@@ -8,7 +8,6 @@ Run this program as `py/generate.py src/core.h 1header/cut.h`
 import os
 import re
 import sys
-from enum import Enum
 
 INCLUDE = re.compile('^# *include "(.+\.h)"')
 
