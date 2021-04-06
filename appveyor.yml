@@ -16,7 +16,7 @@ before_build:
     if ($env:cxx_path -ne "") {
       $env:path = "$env:cxx_path;$env:path"
     }
-    & ls c:\python3.7\
+    & ls c:\
 
 build_script:
 - ps: |
