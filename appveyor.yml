@@ -1,11 +1,11 @@
 version: 1.0.{build}
 environment:
   matrix:
-    - generator: "Visual Studio 16 2019"
-      platform: x64
+    # - generator: "Visual Studio 16 2019"
+    #   platform: x64
     - generator: "MinGW Makefiles"
       platform: mingw64
-      cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin
+    #  cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin
 
 image:
 - Visual Studio 2019
@@ -16,14 +16,11 @@ before_build:
     if ($env:cxx_path -ne "") {
       $env:path = "$env:cxx_path;$env:path"
     }
+    & python3.7 --version
 
 build_script:
 - ps: |
     md build
     cd build
     & cmake .. -G "$env:generator"
-    & cmake --build .
-
-test_script:
-- ps: |
     & cmake --build . --target check
