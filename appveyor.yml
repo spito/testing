@@ -2,16 +2,25 @@ version: 1.0.{build}
 environment:
   matrix:
     - GENERATOR: "Visual Studio 16 2019"
-    - GENERATOR: "MSYS Makefiles"
+      CXX_PATH: ""
+    - GENERATOR: "MinGW Makefiles"
+      CXX_PATH: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
 
 image:
 - Visual Studio 2019
 
+before_build:
+- ps: |
+  $env:path = $env:path.replace("C:\Program Files\Git\usr\bin;", "")
+  $env:path += ";$env:cxx_path"
+
 build_script:
-  - cmd: md build
-  - cmd: cd build
-  - cmd: cmake .. -G "%GENERATOR%"
-  - cmd: cmake --build .
+- ps: |
+  md build
+  cd build
+  & cmake .. -G "%GENERATOR%"
+  & cmake --build .
 
 test_script:
-- cmd: cmake --build . --target check
+- ps: |
+  & cmake --build . --target check
