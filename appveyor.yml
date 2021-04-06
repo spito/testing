@@ -1,0 +1,16 @@
+version: 1.0.{build}
+image:
+- Visual Studio 2019
+
+configuration:
+- Debug
+
+before_build:
+- 'cmake --version'
+- 'cmake -G %generator%'
+
+build:
+  verbosity: normal
+
+test_script:
+- 'cmake --build . --target check'
