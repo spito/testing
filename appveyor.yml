@@ -7,14 +7,10 @@ environment:
 image:
 - Visual Studio 2019
 
-init:
-  - cmd: echo GENERATOR=%GENERATOR%
-  - ps: echo $env:GENERATOR
-
 build_script:
   - cmd: md build
   - cmd: cd build
-  - cmd: cmake .. -G %GENERATOR%
+  - cmd: cmake .. -G '%GENERATOR%'
   - cmd: cmake --build .
 
 test_script:
