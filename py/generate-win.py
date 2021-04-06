@@ -1,4 +1,4 @@
-#!python
+#!python37
 
 import generate
 
