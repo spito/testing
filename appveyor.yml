@@ -4,9 +4,8 @@ environment:
     # - generator: "Visual Studio 16 2019"
     #   platform: x64
     - generator: "MinGW Makefiles"
-      platform: x32
-      # platform: mingw64
-    #  cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin
+      platform: mingw64
+      cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin;c:\Python37-x64
 
 image:
 - Visual Studio 2019
@@ -16,7 +15,7 @@ before_build:
     if ($env:cxx_path -ne "") {
       $env:path = "$env:cxx_path;$env:path"
     }
-    & ls c:\
+    & ls c:\Python37-x64
 
 build_script:
 - ps: |
