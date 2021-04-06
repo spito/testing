@@ -4,7 +4,7 @@ environment:
     - GENERATOR: Visual Studio 16 2019
     - GENERATOR: MinGW makefiles
 
-    image:
+image:
 - Visual Studio 2019
 
 configuration:
