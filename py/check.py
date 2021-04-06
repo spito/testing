@@ -23,7 +23,7 @@ class TestRunner(object):
 
     def check(self, bootstrap):
         try:
-            print('running {}: '.format(self._test), end='')
+            print('running {}: '.format(self._test))
             p = subprocess.Popen([
                     os.path.join(self._testDir, self._test),
                     '--no-color',
