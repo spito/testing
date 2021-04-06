@@ -1,6 +1,7 @@
 #ifndef CUT_LINUX_H
 #define CUT_LINUX_H
 
+#include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -104,7 +105,7 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     cut_PipeReader(pipeRead, result);
     do {
         r = waitpid(pid, &status, 0);
-    while (r == -1 && errno == EINTR);
+    } while (r == -1 && errno == EINTR);
     r != -1 || cut_FatalExit("cannot wait for unit");
     result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
     result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
