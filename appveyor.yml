@@ -3,9 +3,10 @@ environment:
   matrix:
     - generator: "Visual Studio 16 2019"
       platform: x64
+      cxx_path: c:\Python37-x64
     - generator: "MinGW Makefiles"
       platform: mingw64
-      cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin;c:\Python37-x64
+      cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin
 
 image:
 - Visual Studio 2019
