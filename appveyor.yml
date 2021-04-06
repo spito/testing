@@ -12,7 +12,9 @@ image:
 before_build:
 - ps: |
   $env:path = $env:path.replace("C:\Program Files\Git\usr\bin;", "")
-  $env:path += ";$env:cxx_path"
+  if ($env:cxx_path -ne "") {
+    $env:path += ";$env:cxx_path"
+  }
 
 build_script:
 - ps: |
