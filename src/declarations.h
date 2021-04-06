@@ -13,7 +13,7 @@ CUT_NS_BEGIN
 struct cut_Info {
     char *message;
     char *file;
-    int line;
+    unsigned line;
     struct cut_Info *next;
 };
 
@@ -53,7 +53,7 @@ struct cut_UnitResult {
     int subtests;
     enum cut_ResultStatus status;
     char *file;
-    int line;
+    unsigned line;
     char *statement;
     char *exceptionType;
     char *exceptionMessage;
@@ -67,7 +67,7 @@ struct cut_UnitTest {
     cut_Instance instance;
     const char *name;
     const char *file;
-    size_t line;
+    unsigned line;
     struct cut_Settings *settings;
     enum cut_SkipReason skipReason;
 };
@@ -162,15 +162,15 @@ struct cut_EnqueuePair {
 
 typedef void(*cut_Instance)(int *, int);
 typedef void(*cut_GlobalTear)();
-void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, struct cut_Settings *settings);
+void cut_Register(cut_Instance instance, const char *name, const char *file, unsigned line, struct cut_Settings *settings);
 void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
 void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
-CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
-void cut_Check(const char *text, const char *file, size_t line);
+CUT_NORETURN void cut_Stop(const char *text, const char *file, unsigned line);
+void cut_Check(const char *text, const char *file, unsigned line);
 int cut_Input(const char *content);
 void cut_Subtest(int number, const char *name);
-void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
+void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...);
 
 // core:private
 
@@ -209,9 +209,9 @@ CUT_PRIVATE int cut_Runner(int argc, char **argv);
 // messages
 
 CUT_PRIVATE void cut_SendOK(int counter);
-void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
-void cut_Stop(const char *text, const char *file, size_t line);
-void cut_Check(const char *text, const char *file, size_t line);
+void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...);
+void cut_Stop(const char *text, const char *file, unsigned line);
+void cut_Check(const char *text, const char *file, unsigned line);
 #ifdef __cplusplus
 CUT_PRIVATE void cut_StopException(const char *type, const char *text);
 #endif
@@ -219,8 +219,8 @@ CUT_PRIVATE void cut_Timedout();
 void cut_Subtest(int number, const char *name);
 CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result);
 CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name);
-CUT_PRIVATE int cut_AddInfo(struct cut_Info **info, size_t line, const char *file, const char *text);
-CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result, size_t line, const char *file, const char *text);
+CUT_PRIVATE int cut_AddInfo(struct cut_Info **info, unsigned line, const char *file, const char *text);
+CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result, unsigned line, const char *file, const char *text);
 CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result, const char *type, const char *text);
 
 // output

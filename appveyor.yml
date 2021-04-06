@@ -5,9 +5,13 @@ image:
 configuration:
 - Debug
 
+environment:
+  matrix:
+    - generator: "Visual Studio 16 2019"
+    - generator: "MinGW makefiles"
+
 before_build:
-- 'cmake --version'
-- 'cmake -G "Visual Studio 16 2019" .'
+- 'cmake -G %generator% .'
 
 build:
   project: cut.sln

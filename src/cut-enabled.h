@@ -83,15 +83,15 @@ CUT_NS_BEGIN
 extern const char *cut_needs[1];
 typedef void(*cut_Instance)(int *, int);
 typedef void(*cut_GlobalTear)();
-void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, struct cut_Settings *settings);
+void cut_Register(cut_Instance instance, const char *name, const char *file, unsigned line, struct cut_Settings *settings);
 void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
 void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
-CUT_NORETURN void cut_Stop(const char *text, const char *file, size_t line);
-void cut_Check(const char *text, const char *file, size_t line);
+CUT_NORETURN void cut_Stop(const char *text, const char *file, unsigned line);
+void cut_Check(const char *text, const char *file, unsigned line);
 int cut_Input(const char *content);
 void cut_Subtest(int number, const char *name);
-void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...);
+void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...);
 
 CUT_NS_END
 

@@ -72,7 +72,7 @@ CUT_PRIVATE void cut_SendOK(int counter) {
     cut_FragmentClear(&message);
 }
 
-void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...) {
+void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...) {
     va_list args1;
     va_start(args1, fmt);
     va_list args2;
@@ -99,7 +99,7 @@ void cut_DebugMessage(const char *file, size_t line, const char *fmt, ...) {
     free(buffer);
 }
 
-void cut_Stop(const char *text, const char *file, size_t line) {
+void cut_Stop(const char *text, const char *file, unsigned line) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_FAIL);
     size_t *pLine = (size_t*)cut_FragmentReserve(&message, sizeof(size_t), NULL);
@@ -115,7 +115,7 @@ void cut_Stop(const char *text, const char *file, size_t line) {
     longjmp(cut_executionPoint, 1);
 }
 
-void cut_Check(const char *text, const char *file, size_t line) {
+void cut_Check(const char *text, const char *file, unsigned line) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_CHECK);
     size_t *pLine = (size_t*)cut_FragmentReserve(&message, sizeof(size_t), NULL);
@@ -278,7 +278,7 @@ CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, co
 }
 
 CUT_PRIVATE int cut_AddInfo(struct cut_Info **info,
-                             size_t line, const char *file, const char *text) {
+                             unsigned line, const char *file, const char *text) {
     struct cut_Info *item = (struct cut_Info *)malloc(sizeof(struct cut_Info));
     if (!item)
         return 0;
@@ -305,7 +305,7 @@ CUT_PRIVATE int cut_AddInfo(struct cut_Info **info,
 }
 
 CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result,
-                                  size_t line, const char *file, const char *text) {
+                                  unsigned line, const char *file, const char *text) {
     result->file = (char *)malloc(strlen(file) + 1);
     if (!result->file)
         return 0;

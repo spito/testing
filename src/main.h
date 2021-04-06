@@ -54,7 +54,7 @@ CUT_NORETURN int cut_ErrorExit(const char *reason, ...) {
 }
 
 
-void cut_Register(cut_Instance instance, const char *name, const char *file, size_t line, struct cut_Settings *settings) {
+void cut_Register(cut_Instance instance, const char *name, const char *file, unsigned line, struct cut_Settings *settings) {
     if (cut_unitTests.size == cut_unitTests.capacity) {
         cut_unitTests.capacity += 16;
         cut_unitTests.tests = (struct cut_UnitTest *)realloc(cut_unitTests.tests,
