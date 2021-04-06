@@ -4,7 +4,8 @@ environment:
     # - generator: "Visual Studio 16 2019"
     #   platform: x64
     - generator: "MinGW Makefiles"
-      platform: mingw64
+      platform: x64
+      # platform: mingw64
     #  cxx_path: c:\msys64\mingw64\bin;c:\msys64\usr\bin
 
 image:
@@ -12,7 +13,6 @@ image:
 
 before_build:
 - ps: |
-    $env:path = $env:path.replace("C:\Program Files\Git\usr\bin;", "")
     if ($env:cxx_path -ne "") {
       $env:path = "$env:cxx_path;$env:path"
     }
