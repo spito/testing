@@ -5,16 +5,16 @@ image:
 configuration:
 - Debug
 
-before_build:
-  - 'mkdir build'
-  - 'cd build'
+environment:
   - matrix:
-      'cmake -G "Visual Studio 16 2019" ..'
-      'cmake -G "MinGW makefiles" ..'
+    - GENERATOR: Visual Studio 16 2019
+    - GENERATOR: MinGW makefiles
 
-build:
-  project: cut.sln
-  verbosity: normal
+build_script:
+  - cmd: md build
+  - cmd: cd build
+  - cmd: cmake .. -G %GENERATOR%
+  - cmd: cmake --build .
 
 test_script:
-- 'cmake --build . --target check'
+- cmd: cmake --build . --target check
