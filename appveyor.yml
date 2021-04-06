@@ -2,7 +2,7 @@ version: 1.0.{build}
 environment:
   matrix:
     - GENERATOR: "Visual Studio 16 2019"
-    - GENERATOR: "MinGW Makefiles"
+    - GENERATOR: "MSYS Makefiles"
 
 image:
 - Visual Studio 2019
