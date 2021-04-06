@@ -38,17 +38,9 @@ foreach(TEST_FILE ${TESTS})
     endif()
 endforeach()
 
-if(WIN32)
-    add_custom_target(
-        check
-        COMMAND python3 "${CMAKE_SOURCE_DIR}/py/check.py" "${CMAKE_BINARY_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests"
-        DEPENDS ${TESTS}
-    )
-else()
-    add_custom_target(
-        check
-        COMMAND "${CMAKE_SOURCE_DIR}/py/check.py" "${CMAKE_BINARY_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests"
-        DEPENDS ${TESTS}
-    )
-endif()
+add_custom_target(
+    check
+    COMMAND python3 "${CMAKE_SOURCE_DIR}/py/check.py" "${CMAKE_BINARY_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests"
+    DEPENDS ${TESTS}
+)
 
