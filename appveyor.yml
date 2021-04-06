@@ -7,15 +7,15 @@ configuration:
 
 environment:
   matrix:
-    - generator: "Visual Studio 16 2019"
-    - generator: "MinGW makefiles"
+    - generator: Visual Studio 16 2019
+    - generator: MinGW makefiles
 
 before_build:
-- 'cmake -G %generator% .'
+- cmake -G %generator% .
 
 build:
   project: cut.sln
   verbosity: normal
 
 test_script:
-- 'cmake --build . --target check'
+- cmake --build . --target check
