@@ -12,8 +12,6 @@ import subprocess
 
 TEST_PREFIX = 't-'
 
-print(sys.version)
-
 class TestRunner(object):
     def __init__(self, test, outputDir):
         self._testDir, self._test = test
