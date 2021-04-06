@@ -1,10 +1,10 @@
 version: 1.0.{build}
 environment:
   matrix:
-    - GENERATOR: "Visual Studio 16 2019"
-      CXX_PATH: ""
-    - GENERATOR: "MinGW Makefiles"
-      CXX_PATH: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
+    - generator: "Visual Studio 16 2019"
+      cxx_path: ""
+    - generator: "MinGW Makefiles"
+      cxx_path: 'C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32\bin'
 
 image:
 - Visual Studio 2019
@@ -20,7 +20,7 @@ build_script:
 - ps: |
     md build
     cd build
-    & cmake .. -G "%GENERATOR%"
+    & cmake .. -G "$env:generator"
     & cmake --build .
 
 test_script:
