@@ -11,18 +11,18 @@ image:
 
 before_build:
 - ps: |
-  $env:path = $env:path.replace("C:\Program Files\Git\usr\bin;", "")
-  if ($env:cxx_path -ne "") {
-    $env:path += ";$env:cxx_path"
-  }
+    $env:path = $env:path.replace("C:\Program Files\Git\usr\bin;", "")
+    if ($env:cxx_path -ne "") {
+      $env:path += ";$env:cxx_path"
+    }
 
 build_script:
 - ps: |
-  md build
-  cd build
-  & cmake .. -G "%GENERATOR%"
-  & cmake --build .
+    md build
+    cd build
+    & cmake .. -G "%GENERATOR%"
+    & cmake --build .
 
 test_script:
 - ps: |
-  & cmake --build . --target check
+    & cmake --build . --target check
