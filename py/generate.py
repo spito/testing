@@ -10,6 +10,7 @@ import re
 import sys
 
 INCLUDE = re.compile('^# *include "(.+\.h)"')
+print(sys.version)
 
 class Context(object):
     def __init__(self, path, comment):
