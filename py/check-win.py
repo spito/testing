@@ -1,4 +1,4 @@
-#!python37
+#!python3.7
 
 import check
 
