@@ -1,4 +1,4 @@
-#!python3.7
+#!python
 
 import generate
 
