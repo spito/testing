@@ -41,7 +41,7 @@ endforeach()
 if(WIN32)
     add_custom_target(
         check
-        COMMAND "${CMAKE_SOURCE_DIR}/py/check-win.py" "${CMAKE_BINARY_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests"
+        COMMAND python3 "${CMAKE_SOURCE_DIR}/py/check.py" "${CMAKE_BINARY_DIR}/tests" "${CMAKE_SOURCE_DIR}/tests"
         DEPENDS ${TESTS}
     )
 else()
