@@ -13,8 +13,6 @@
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (!setjmp(cut_executionPoint)) {
-        if (cut_globalTearUp)
-            cut_globalTearUp();
         try {
             int counter = 0;
             cut_unitTests.tests[testId].instance(&counter, subtest);
@@ -27,8 +25,6 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
         }
     }
 
-    if (cut_globalTearDown)
-        cut_globalTearDown();
     cut_ResumeIO();
 }
 
@@ -39,15 +35,11 @@ CUT_NS_BEGIN
 CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (!setjmp(cut_executionPoint)) {
-        if (cut_globalTearUp)
-            cut_globalTearUp();
         int counter = 0;
         cut_unitTests.tests[testId].instance(&counter, subtest);
         cut_SendOK(counter);
     }
 
-    if (cut_globalTearDown)
-        cut_globalTearDown();
     cut_ResumeIO();
 }
 

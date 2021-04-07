@@ -71,18 +71,6 @@ void cut_Register(cut_Instance instance, const char *name, const char *file, uns
     ++cut_unitTests.size;
 }
 
-void cut_RegisterGlobalTearUp(cut_GlobalTear instance) {
-    if (cut_globalTearUp)
-        cut_FatalExit("cannot overwrite tear up function");
-    cut_globalTearUp = instance;
-}
-
-void cut_RegisterGlobalTearDown(cut_GlobalTear instance) {
-    if (cut_globalTearDown)
-        cut_FatalExit("cannot overwrite tear down function");
-    cut_globalTearDown = instance;
-}
-
 CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, char **argv) {
     static const char *help = "--help";
     static const char *list = "--list";

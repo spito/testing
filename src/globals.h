@@ -11,8 +11,6 @@ CUT_PRIVATE const char *cut_emergencyLog = "cut.log";
 
 // avaliable to all forks, readonly after initialization
 CUT_PRIVATE struct cut_UnitTestArray cut_unitTests = {0, 0, NULL};
-CUT_PRIVATE cut_GlobalTear cut_globalTearUp = NULL;
-CUT_PRIVATE cut_GlobalTear cut_globalTearDown = NULL;
 
 // manipulation either in main instance during no-fork mode
 // or in forked instances

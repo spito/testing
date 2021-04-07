@@ -7,8 +7,6 @@
 #define CHECK_FILE(f, content) (void)0
 #define INPUT(content) (void)0
 #define TEST(name) static void unitTest_ ## name()
-#define GLOBAL_TEAR_UP() static void cut_GlobalTearUpInstance()
-#define GLOBAL_TEAR_DOWN() static void cut_GlobalTearDownInstance()
 #define SUBTEST(name) if (0)
 #define REPEATED_SUBTEST(name, count) if (0)
 #define SUBTEST_NO 0

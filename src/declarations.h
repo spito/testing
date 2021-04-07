@@ -161,10 +161,7 @@ struct cut_EnqueuePair {
 // core:public
 
 typedef void(*cut_Instance)(int *, int);
-typedef void(*cut_GlobalTear)();
 void cut_Register(cut_Instance instance, const char *name, const char *file, unsigned line, struct cut_Settings *settings);
-void cut_RegisterGlobalTearUp(cut_GlobalTear instance);
-void cut_RegisterGlobalTearDown(cut_GlobalTear instance);
 int cut_File(FILE *file, const char *content);
 CUT_NORETURN void cut_Stop(const char *text, const char *file, unsigned line);
 void cut_Check(const char *text, const char *file, unsigned line);

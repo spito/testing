@@ -45,25 +45,25 @@ Runtime configuration is done via command line arguments. Arguments are used to 
 
  * `--help` - Print a help.
  * `--timeout <N>` - Set timeout of each test in seconds. 0 for no timeout. Overrides `CUT_TIMEOUT` value.
- * `--no-fork` - Disable forking. Timeout is turned off.
+ * `--no-fork` - Disable forking.
  * `--fork` - Force forking. Usefull during debugging with fork enabled. Overrides `CUT_NO_FORK`.
  * `--no-color` - Turn off colors.
  * `--output <file>` - Redirect output to the file.
  * `--short-path <N>` - Make filenames in the output (reporting checks, asserts, debug messages) shorter.
+ * `--format [json]` - Select output format. Currently, only `json` is supported. Otherwise the format is (possibly)
+ colorized text
 
 ### Provided macros
 
  * `TEST(name)` - Defines test and its name.
  * `SUBTEST("name")` - Defines subtest within the test. Each subtest is executed separately and eventualy in its own process.
- * `REPEATED_SUBTEST(name, count)` - Defines subtest which is run `count`-times. Do not mix with the `SUBTEST()` in the same `TEST()`.
+ * `REPEATED_SUBTEST("name", count)` - Defines subtest which is run `count`-times. Do not mix with the `SUBTEST()` in the same `TEST()`.
  * `SUBTEST_NO` - A number of current subtest iteration in the `REPEATED_SUBTEST()`.
  * `ASSERT(condition)` - Check if the condition is non-zero. If not, aborts the test.
  * `CHECK(condition)` - Check if the condition is non-zero. If not, reports it and continues.
  * `ASSERT_FILE(file, content)` - Check if the content of the `file` equals to the `content`. If not, aborts the test. The type of `file` should be `FILE *` and such file has to be opened for reading. It is possible to check even `stdout` and `stderr`. 
  * `CHECK_FILE(file, content)` - Same as the previous except it does not aborts the test.
  * `DEBUG_MSG(fmt, ...)` - Write a debug message. Use printf-like formatting.
- * `GLOBAL_TEAR_UP()` - Defines a function executed before each test/subtest.
- * `GLOBAL_TEAR_DOWN()` - Defines a function executed after each test/subtest even in case of assert failure or uncaught exception. The function is not executed in case of abnormal termination of test.
 
 When `SUBTEST("name")` or `REPEATED_SUBTEST("name", count)` is used, the whole test is run several times. The first run does not execute any of subtest, its purpose is to figure out how many subtests are in the test. The subsequent executions will run subtests one by one, eventualy each in its own process.
 
