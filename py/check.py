@@ -21,7 +21,7 @@ class TestRunner(object):
 
     def check(self, bootstrap):
         try:
-            print('running {}: '.format(self._test))
+            print('running {}: '.format(self._test), end='')
             p = subprocess.Popen([
                     os.path.join(self._testDir, self._test),
                     '--no-color',
@@ -58,8 +58,18 @@ class TestRunner(object):
         return not self._statusUnknown
 
     def _compare(self, output):
-        with open(self._outName(), 'rb') as f:
-            return f.read(len(output) + 1) == output and not self._statusUnknown
+        if self._statusUnknown:
+            return False
+        expected = dict()
+        with open(self._outName(), 'r') as f:
+            expected = {k: v for k, v in enumerate(f.read().splitlines())}
+        given = {k: v for k, v in enumerate(output.decode('ascii').splitlines())}
+
+        if len(expected) != len(given):
+            return False
+
+        return len(expected) == len([i for i in expected if i in given and expected[i] == given[i]])
+
 
 
 def isexecutable(path):
