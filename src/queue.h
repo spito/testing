@@ -15,7 +15,7 @@ CUT_PRIVATE void cut_InitQueue(struct cut_Queue *queue) {
 CUT_PRIVATE struct cut_QueueItem *cut_QueuePushRefCountedTest(struct cut_Queue *queue, int testId, int *refCount) {
     struct cut_QueueItem *item = (struct cut_QueueItem *) malloc(sizeof(struct cut_QueueItem));
     if (!item)
-        cut_FatalExit("cannot allocate memory for queue item");
+        CUT_DIE("cannot allocate memory for queue item");
 
     item->testId = testId;
     item->refCount = refCount;
@@ -34,7 +34,7 @@ CUT_PRIVATE struct cut_QueueItem *cut_QueuePushTest(struct cut_Queue *queue, int
     struct cut_QueueItem *item = cut_QueuePushRefCountedTest(queue, testId, NULL);
     item->refCount = (int *) malloc(sizeof(int));
     if (!item->refCount)
-        cut_FatalExit("cannot allocate memory for refCount");
+        CUT_DIE("cannot allocate memory for refCount");
     *item->refCount = 1;
     return item;
 }

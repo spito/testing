@@ -30,9 +30,9 @@ CUT_PRIVATE int cut_CreateTemporaryFile(FILE **file) {
 
 CUT_PRIVATE void cut_RedirectIO() {
     cut_outputsRedirected = 1;
-    cut_CreateTemporaryFile(&cut_stdin) || cut_FatalExit("cannot open temporary file");
-    cut_CreateTemporaryFile(&cut_stdout) || cut_FatalExit("cannot open temporary file");
-    cut_CreateTemporaryFile(&cut_stderr) || cut_FatalExit("cannot open temporary file");
+    cut_CreateTemporaryFile(&cut_stdin) || CUT_DIE("cannot open temporary file");
+    cut_CreateTemporaryFile(&cut_stdout) || CUT_DIE("cannot open temporary file");
+    cut_CreateTemporaryFile(&cut_stderr) || CUT_DIE("cannot open temporary file");
     cut_originalStdIn = _dup(0);
     cut_originalStdOut = _dup(1);
     cut_originalStdErr = _dup(2);
@@ -42,17 +42,27 @@ CUT_PRIVATE void cut_RedirectIO() {
 }
 
 CUT_PRIVATE void cut_ResumeIO() {
-    fclose(cut_stdin) != -1 || cut_FatalExit("cannot close file");
-    fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
-    fclose(cut_stderr) != -1 || cut_FatalExit("cannot close file");
-    _close(0) != -1 || cut_FatalExit("cannot close file");
-    _close(1) != -1 || cut_FatalExit("cannot close file");
-    _close(2) != -1 || cut_FatalExit("cannot close file");
+    fclose(cut_stdin) != -1 || CUT_DIE("cannot close file");
+    fclose(cut_stdout) != -1 || CUT_DIE("cannot close file");
+    fclose(cut_stderr) != -1 || CUT_DIE("cannot close file");
+    _close(0) != -1 || CUT_DIE("cannot close file");
+    _close(1) != -1 || CUT_DIE("cannot close file");
+    _close(2) != -1 || CUT_DIE("cannot close file");
     _dup2(cut_originalStdIn, 0);
     _dup2(cut_originalStdOut, 1);
     _dup2(cut_originalStdErr, 2);
 
     cut_outputsRedirected = 0;
+}
+
+CUT_PRIVATE int cut_ReopenFile(FILE *file) {
+    int fd = _dup(_fileno(file));
+    _lseek(fd, 0, SEEK_SET);
+    return fd;
+}
+
+CUT_PRIVATE void cut_CloseFile(int fd) {
+    _close(fd);
 }
 
 CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes) {
@@ -73,10 +83,10 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
         // create a group of processes to be able to kill unit when parent dies
 		cut_jobGroup = CreateJobObject(NULL, NULL);
         if (!cut_jobGroup)
-            cut_FatalExit("cannot create jobGroup object");
+            CUT_DIE("cannot create jobGroup object");
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {0};
         jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        SetInformationJobObject(cut_jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||cut_FatalExit("cannot SetInformationJobObject");
+        SetInformationJobObject(cut_jobGroup, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli)) ||CUT_DIE("cannot SetInformationJobObject");
     }
     if (arguments->testId < 0)
         return 0;
@@ -86,7 +96,7 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
     HANDLE timer = NULL;
     if (arguments->timeout) {
         CreateTimerQueueTimer(&timer, NULL, cut_TimerCallback, NULL, 
-                              arguments->timeout * 1000, 0, WT_EXECUTEONLYONCE) || cut_FatalExit("cannot create timer");
+                              arguments->timeout * 1000, 0, WT_EXECUTEONLYONCE) || CUT_DIE("cannot create timer");
     }
 
     cut_pipeWrite = _dup(1);
@@ -94,10 +104,10 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
 
     cut_ExceptionBypass(arguments->testId, arguments->subtestId);
 
-    _close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
+    _close(cut_pipeWrite) != -1 || CUT_DIE("cannot close file");
 
     if (timer) {
-        DeleteTimerQueueTimer(NULL, timer, NULL) || cut_FatalExit("cannot delete timer");
+        DeleteTimerQueueTimer(NULL, timer, NULL) || CUT_DIE("cannot delete timer");
     }
 
     return 1;
@@ -142,64 +152,28 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
                    NULL,
                    NULL,
                    &startInfo,
-                   &procInfo) || cut_FatalExit("cannot create process");
+                   &procInfo) || CUT_DIE("cannot create process");
     free(command);
 
-    AssignProcessToJobObject(cut_jobGroup, procInfo.hProcess) || cut_FatalExit("cannot assign process to job object");
-    ResumeThread(procInfo.hThread) == 1 || cut_FatalExit("cannot resume thread");
-	CloseHandle(childOutWrite) || cut_FatalExit("cannot close handle");
+    AssignProcessToJobObject(cut_jobGroup, procInfo.hProcess) || CUT_DIE("cannot assign process to job object");
+    ResumeThread(procInfo.hThread) == 1 || CUT_DIE("cannot resume thread");
+	CloseHandle(childOutWrite) || CUT_DIE("cannot close handle");
 
     int pipeRead = _open_osfhandle((intptr_t)childOutRead, 0);
     cut_PipeReader(pipeRead, result);
 
-    WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || cut_FatalExit("cannot wait for single object");
+    WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || CUT_DIE("cannot wait for single object");
     DWORD childResult;
-    GetExitCodeProcess(procInfo.hProcess, &childResult) || cut_FatalExit("cannot get exit code");
-    CloseHandle(procInfo.hProcess) || cut_FatalExit("cannot close handle");
-    CloseHandle(procInfo.hThread) || cut_FatalExit("cannot close handle");
+    GetExitCodeProcess(procInfo.hProcess, &childResult) || CUT_DIE("cannot get exit code");
+    CloseHandle(procInfo.hProcess) || CUT_DIE("cannot close handle");
+    CloseHandle(procInfo.hThread) || CUT_DIE("cannot close handle");
 
     result->returnCode = childResult;
     result->signal = 0;
     if (result->returnCode)
         result->status = cut_RESULT_RETURNED_NON_ZERO;
 
-    _close(pipeRead) != -1 || cut_FatalExit("cannot close file");
-}
-
-CUT_PRIVATE int cut_ReadWholeFile(int fd, char *buffer, size_t length) {
-    while (length) {
-        int64_t rv = _read(fd, buffer, length);
-        if (rv < 0)
-            return -1;
-        buffer += rv;
-        length -= (size_t)rv;
-    }
-    return 0;
-}
-
-int cut_File(FILE *f, const char *content) {
-    int result = 0;
-    size_t length = strlen(content);
-    _flushall();
-    int fd = _fileno(f);
-    char *buf = NULL;
-
-    long offset = _lseek(fd, 0, SEEK_CUR);
-    if ((size_t) _lseek(fd, 0, SEEK_END) != length)
-        goto cleanup;
-
-    _lseek(fd, 0, SEEK_SET);
-    buf = (char*)malloc(length);
-    if (!buf)
-        cut_FatalExit("cannot allocate memory for file");
-    if (cut_ReadWholeFile(fd, buf, length))
-        cut_FatalExit("cannot read whole file");
-
-    result = memcmp(content, buf, length) == 0;
-cleanup:
-    _lseek(fd, offset, SEEK_SET);
-    free(buf);
-    return result;
+    _close(pipeRead) != -1 || CUT_DIE("cannot close file");
 }
 
 CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text) {

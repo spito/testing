@@ -31,7 +31,7 @@ CUT_PRIVATE const char *cut_SanitizeStr_json(struct cut_OutputData_json *data, c
         data->buffer = (char *) realloc(data->buffer, size + quots);
         data->bufferSize = size + quots;
         if (!data->buffer)
-            cut_FatalExit("cannot allocate memory for json");
+            CUT_DIE("cannot allocate memory for json");
     }
 
     char *buffer = data->buffer;
@@ -171,13 +171,13 @@ CUT_PRIVATE void cut_InitOutput_json(struct cut_Shepherd *shepherd) {
 
     shepherd->data = malloc(sizeof(struct cut_OutputData_json));
     if (!shepherd->data)
-        cut_FatalExit("cannot allocate memory for output");
+        CUT_DIE("cannot allocate memory for output");
 
     struct cut_OutputData_json *data = (struct cut_OutputData_json *)shepherd->data;
     
     data->attributes = (struct cut_TestAttributes_json *) malloc(sizeof(struct cut_TestAttributes_json) * cut_unitTests.size);
     if (!data->attributes)
-        cut_FatalExit("cannot allocate memory for output");
+        CUT_DIE("cannot allocate memory for output");
     memset(data->attributes, 0, sizeof(struct cut_TestAttributes_json) * cut_unitTests.size);
     data->testNumber = 0;
     data->buffer = NULL;

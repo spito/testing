@@ -97,8 +97,9 @@ struct cut_Arguments {
 
 enum cut_ReturnCodes {
     cut_NORMAL_EXIT = 0,
-    cut_ERROR_EXIT = 254,
-    cut_FATAL_EXIT = 255
+    cut_ERROR_EXIT = 253,
+    cut_FATAL_EXIT = 254,
+    cut_PANIC = 255
 };
 
 enum cut_Colors {
@@ -171,7 +172,9 @@ void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...);
 
 // core:private
 
-CUT_NORETURN int cut_FatalExit(const char *reason);
+#define CUT_DIE(reason) cut_FatalExit(reason, __FILE__, __LINE__)
+
+CUT_NORETURN int cut_FatalExit(const char *reason, const char *file, unsigned line);
 CUT_NORETURN int cut_ErrorExit(const char *reason, ...);
 
 CUT_PRIVATE void cut_ClearInfo(struct cut_Info *info);
@@ -246,6 +249,8 @@ CUT_PRIVATE int cut_IsDebugger();
 CUT_PRIVATE void cut_RedirectIO();
 CUT_PRIVATE void cut_ResumeIO();
 
+CUT_PRIVATE int cut_ReopenFile(FILE *file);
+CUT_PRIVATE void cut_CloseFile(int fd);
 CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes);
 CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes);
 
@@ -253,7 +258,6 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments);
 CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest,
                              struct cut_UnitResult *result);
 
-int cut_File(FILE *file, const char *content);
 CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text);
 
 CUT_NS_END

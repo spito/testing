@@ -102,9 +102,10 @@ CUT_PRIVATE const char *cut_ReturnCode(int returnCode) {
     static char number[16];
     switch (returnCode) {
     case cut_ERROR_EXIT:
-        return "ERROR EXIT";
     case cut_FATAL_EXIT:
         return "FATAL EXIT";
+    case cut_PANIC:
+        return "PANIC";
     default:
         sprintf(number, "%d", returnCode);
         return number;

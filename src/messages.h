@@ -2,6 +2,7 @@
 #define CUT_MESSAGES_H
 
 #include "declarations.h"
+#include "fragments.h"
 
 CUT_NS_BEGIN
 
@@ -33,7 +34,7 @@ CUT_PRIVATE int cut_ReadMessage(int pipeRead, struct cut_Fragment *message) {
             message->serializedLength = (uint32_t)(processed + toRead);
             message->serialized = (char *)realloc(message->serialized, message->serializedLength);
             if (!message->serialized)
-                cut_FatalExit("cannot allocate memory for reading a message");
+                CUT_DIE("cannot allocate memory for reading a message");
         }
         r = cut_Read(pipeRead, message->serialized + processed, (size_t)toRead);
     }
@@ -64,88 +65,74 @@ CUT_PRIVATE void cut_SendOK(int counter) {
     cut_FragmentInit(&message, cut_MESSAGE_OK);
     int *pCounter = (int *)cut_FragmentReserve(&message, sizeof(int), NULL);
     if (!pCounter)
-        cut_FatalExit("cannot allocate memory ok:fragment:counter");
+        CUT_DIE("cannot allocate memory ok:fragment:counter");
     *pCounter = counter;
 
-    cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize ok:fragment");
-    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send ok:message");
+    cut_FragmentSerialize(&message) || CUT_DIE("cannot serialize ok:fragment");
+    cut_SendLocalMessage(&message) || CUT_DIE("cannot send ok:message");
     cut_FragmentClear(&message);
 }
 
-void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...) {
+void cut_CommonMessage(int id, const char *text, const char *file, unsigned line) {
+    struct cut_Fragment message;
+    cut_FragmentInit(&message, id);
+    unsigned *pLine = (unsigned*)cut_FragmentReserve(&message, sizeof(unsigned), NULL);
+    if (!pLine)
+        CUT_DIE("cannot insert fragment:line");
+    *pLine = line;
+    cut_FragmentAddString(&message, file) || CUT_DIE("cannot insert fragment:file");
+    cut_FragmentAddString(&message, text) || CUT_DIE("cannot insert fragment:text");
+    cut_FragmentSerialize(&message) || CUT_DIE("cannot serialize fragment");
+
+    cut_SendLocalMessage(&message) || CUT_DIE("cannot send message");
+    cut_FragmentClear(&message);
+}
+
+void cut_FormatMessage(cut_Reporter reporter, const char *file, unsigned line, const char *fmt, ...) {
     va_list args1;
     va_start(args1, fmt);
     va_list args2;
     va_copy(args2, args1);
     size_t length = 1 + vsnprintf(NULL, 0, fmt, args1);
     char *buffer;
-    (buffer = (char *)malloc(length)) || cut_FatalExit("cannot allocate buffer");
+    (buffer = (char *)malloc(length)) || CUT_DIE("cannot allocate buffer");
     va_end(args1);
     vsnprintf(buffer, length, fmt, args2);
     va_end(args2);
 
-    struct cut_Fragment message;
-    cut_FragmentInit(&message, cut_MESSAGE_DEBUG);
-    size_t *pLine = (size_t *)cut_FragmentReserve(&message, sizeof(size_t), NULL);
-    if (!pLine)
-        cut_FatalExit("cannot insert debug:fragment:line");
-    *pLine = line;
-    cut_FragmentAddString(&message, file) || cut_FatalExit("cannot insert debug:fragment:file");
-    cut_FragmentAddString(&message, buffer) || cut_FatalExit("cannot insert debug:fragment:buffer");
-    cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize debug:fragment");
-
-    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send debug:message");
-    cut_FragmentClear(&message);
+    reporter(buffer, file, line);
     free(buffer);
 }
 
 void cut_Stop(const char *text, const char *file, unsigned line) {
-    struct cut_Fragment message;
-    cut_FragmentInit(&message, cut_MESSAGE_FAIL);
-    size_t *pLine = (size_t*)cut_FragmentReserve(&message, sizeof(size_t), NULL);
-    if (!pLine)
-        cut_FatalExit("cannot insert stop:fragment:line");
-    *pLine = line;
-    cut_FragmentAddString(&message, file) || cut_FatalExit("cannot insert stop:fragment:file");
-    cut_FragmentAddString(&message, text) || cut_FatalExit("cannot insert stop:fragment:text");
-    cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize stop:fragment");
-
-    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send stop:message");
-    cut_FragmentClear(&message);
+    cut_CommonMessage(cut_MESSAGE_FAIL, text, file, line);
     longjmp(cut_executionPoint, 1);
 }
 
 void cut_Check(const char *text, const char *file, unsigned line) {
-    struct cut_Fragment message;
-    cut_FragmentInit(&message, cut_MESSAGE_CHECK);
-    size_t *pLine = (size_t*)cut_FragmentReserve(&message, sizeof(size_t), NULL);
-    if (!pLine)
-        cut_FatalExit("cannot insert check:fragment:line");
-    *pLine = line;
-    cut_FragmentAddString(&message, file) || cut_FatalExit("cannot insert check:fragment:file");
-    cut_FragmentAddString(&message, text) || cut_FatalExit("cannot insert check:fragment:text");
-    cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize check:fragment");
+    cut_CommonMessage(cut_MESSAGE_CHECK, text, file, line);
+}
 
-    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send check:message");
-    cut_FragmentClear(&message);
+void cut_Debug(const char *text, const char *file, unsigned line) {
+    cut_CommonMessage(cut_MESSAGE_DEBUG, text, file, line);
 }
 
 CUT_PRIVATE void cut_StopException(const char *type, const char *text) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_EXCEPTION);
-    cut_FragmentAddString(&message, type) || cut_FatalExit("cannot insert exception:fragment:type");
-    cut_FragmentAddString(&message, text) || cut_FatalExit("cannot insert exception:fragment:text");
-    cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize exception:fragment");
+    cut_FragmentAddString(&message, type) || CUT_DIE("cannot insert exception:fragment:type");
+    cut_FragmentAddString(&message, text) || CUT_DIE("cannot insert exception:fragment:text");
+    cut_FragmentSerialize(&message) || CUT_DIE("cannot serialize exception:fragment");
 
-    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send exception:message");
+    cut_SendLocalMessage(&message) || CUT_DIE("cannot send exception:message");
     cut_FragmentClear(&message);
 }
 
 CUT_PRIVATE void cut_Timedout() {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_TIMEOUT);
-    cut_FragmentSignalSafeSerialize(&message) || cut_FatalExit("cannot serialize timeout:fragment");
-    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send timeout:message");
+    cut_FragmentSignalSafeSerialize(&message) || CUT_DIE("cannot serialize timeout:fragment");
+    cut_SendLocalMessage(&message) || CUT_DIE("cannot send timeout:message");
 }
 
 void cut_Subtest(int number, const char *name) {
@@ -153,12 +140,12 @@ void cut_Subtest(int number, const char *name) {
     cut_FragmentInit(&message, cut_MESSAGE_SUBTEST);
     int * pNumber = (int *)cut_FragmentReserve(&message, sizeof(int), NULL);
     if (!pNumber)
-        cut_FatalExit("cannot insert subtest:fragment:number");
+        CUT_DIE("cannot insert subtest:fragment:number");
     *pNumber = number;
-    cut_FragmentAddString(&message, name) || cut_FatalExit("cannot insert subtest:fragment:name");
-    cut_FragmentSerialize(&message) || cut_FatalExit("cannot serialize subtest:fragment");
+    cut_FragmentAddString(&message, name) || CUT_DIE("cannot insert subtest:fragment:name");
+    cut_FragmentSerialize(&message) || CUT_DIE("cannot serialize subtest:fragment");
 
-    cut_SendLocalMessage(&message) || cut_FatalExit("cannot send subtest:message");
+    cut_SendLocalMessage(&message) || CUT_DIE("cannot send subtest:message");
     cut_FragmentClear(&message);
 }
 
@@ -187,7 +174,7 @@ CUT_PRIVATE int cut_ReadLocalMessage(int pipeRead, struct cut_Fragment *message)
             message->serializedLength = (uint32_t)(processed + toRead);
             message->serialized = (char *)realloc(message->serialized, message->serializedLength);
             if (!message->serialized)
-                cut_FatalExit("cannot allocate memory for reading a message");
+                CUT_DIE("cannot allocate memory for reading a message");
         }
         memcpy(message->serialized + processed, cut_localMessageCursor, (size_t)toRead);
         cut_localMessageCursor += toRead;
@@ -202,63 +189,69 @@ CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
         repeat = 0;
         struct cut_Fragment message;
         cut_FragmentInit(&message, cut_NO_TYPE);
-        cut_ReadLocalMessage(pipeRead, &message) || cut_FatalExit("cannot read message");
-        cut_FragmentDeserialize(&message) || cut_FatalExit("cannot deserialize message");
+        cut_ReadLocalMessage(pipeRead, &message) || CUT_DIE("cannot read message");
+        cut_FragmentDeserialize(&message) || CUT_DIE("cannot deserialize message");
 
         switch (message.id) {
         case cut_MESSAGE_SUBTEST:
-            message.sliceCount == 2 || cut_FatalExit("invalid debug:message format");
+            message.sliceCount == 2 || CUT_DIE("invalid debug:message format");
             cut_SetSubtestName(
                 result,
                 *(int *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL)
-            ) || cut_FatalExit("cannot set subtest name");
+            ) || CUT_DIE("cannot set subtest name");
             repeat = 1;
             break;
+
         case cut_MESSAGE_DEBUG:
-            message.sliceCount == 3 || cut_FatalExit("invalid debug:message format");
+            message.sliceCount == 3 || CUT_DIE("invalid debug:message format");
             cut_AddInfo(
                 &result->debug,
-                *(size_t *)cut_FragmentGet(&message, 0, NULL),
+                *(unsigned *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
-            ) || cut_FatalExit("cannot add debug");
+            ) || CUT_DIE("cannot add debug");
             repeat = 1;
             break;
+
         case cut_MESSAGE_OK:
-            message.sliceCount == 1 || cut_FatalExit("invalid ok:message format");
+            message.sliceCount == 1 || CUT_DIE("invalid ok:message format");
             result->subtests = *(int *)cut_FragmentGet(&message, 0, NULL);
             if (result->status == cut_RESULT_UNKNOWN)
                 result->status = cut_RESULT_OK;
             break;
+
         case cut_MESSAGE_FAIL:
-            message.sliceCount == 3 || cut_FatalExit("invalid fail:message format");
+            message.sliceCount == 3 || CUT_DIE("invalid fail:message format");
             cut_SetFailResult(
                 result,
-                *(size_t *)cut_FragmentGet(&message, 0, NULL),
+                *(unsigned *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
-            ) || cut_FatalExit("cannot set fail result");
+            ) || CUT_DIE("cannot set fail result");
             break;
+
         case cut_MESSAGE_EXCEPTION:
-            message.sliceCount == 2 || cut_FatalExit("invalid exception:message format");
+            message.sliceCount == 2 || CUT_DIE("invalid exception:message format");
             cut_SetExceptionResult(
                 result,
                 cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL)
-            ) || cut_FatalExit("cannot set exception result");
+            ) || CUT_DIE("cannot set exception result");
             break;
+
         case cut_MESSAGE_TIMEOUT:
             result->status = cut_RESULT_TIMED_OUT;
             break;
+
         case cut_MESSAGE_CHECK:
-            message.sliceCount == 3 || cut_FatalExit("invalid check:message format");
+            message.sliceCount == 3 || CUT_DIE("invalid check:message format");
             cut_AddInfo(
                 &result->check,
-                *(size_t *)cut_FragmentGet(&message, 0, NULL),
+                *(unsigned *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
-            ) || cut_FatalExit("cannot add check");
+            ) || CUT_DIE("cannot add check");
             result->status = cut_RESULT_FAILED;
             repeat = 1;
             break;

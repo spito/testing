@@ -35,16 +35,26 @@ CUT_PRIVATE void cut_RedirectIO() {
 }
 
 CUT_PRIVATE void cut_ResumeIO() {
-    fclose(cut_stdin) != -1 || cut_FatalExit("cannot close file");
-    fclose(cut_stdout) != -1 || cut_FatalExit("cannot close file");
-    fclose(cut_stderr) != -1 || cut_FatalExit("cannot close file");
-    close(0) != -1 || cut_FatalExit("cannot close file");
-    close(1) != -1 || cut_FatalExit("cannot close file");
-    close(2) != -1 || cut_FatalExit("cannot close file");
+    fclose(cut_stdin) != -1 || CUT_DIE("cannot close file");
+    fclose(cut_stdout) != -1 || CUT_DIE("cannot close file");
+    fclose(cut_stderr) != -1 || CUT_DIE("cannot close file");
+    close(0) != -1 || CUT_DIE("cannot close file");
+    close(1) != -1 || CUT_DIE("cannot close file");
+    close(2) != -1 || CUT_DIE("cannot close file");
     dup2(cut_originalStdIn, 0);
     dup2(cut_originalStdOut, 1);
     dup2(cut_originalStdErr, 2);
     cut_outputsRedirected = 0;
+}
+
+CUT_PRIVATE int cut_ReopenFile(FILE *file) {
+    int fd = dup(fileno(file));
+    lseek(fd, 0, SEEK_SET);
+    return fd;
+}
+
+CUT_PRIVATE void cut_CloseFile(int fd) {
+    close(fd);
 }
 
 CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes) {
@@ -69,7 +79,7 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     int pipefd[2];
     r = pipe(pipefd);
     if (r == -1)
-        cut_FatalExit("cannot establish communication pipe");
+        CUT_DIE("cannot establish communication pipe");
 
     int pipeRead = pipefd[0];
     int pipeWrite = pipefd[1];
@@ -78,10 +88,10 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     int parentPid = getpid();
     pid = fork();
     if (pid == -1)
-        cut_FatalExit("cannot fork");
+        CUT_DIE("cannot fork");
     if (!pid) {
         /// TODO: missing feature - kill child when parent dies
-        close(pipeRead) != -1 || cut_FatalExit("cannot close file");
+        close(pipeRead) != -1 || CUT_DIE("cannot close file");
         cut_pipeWrite = pipeWrite;
 
         int timeout = cut_unitTests.tests[testId].settings->timeout;
@@ -91,73 +101,25 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
         }
         cut_ExceptionBypass(testId, subtest);
 
-        close(cut_pipeWrite) != -1 || cut_FatalExit("cannot close file");
+        close(cut_pipeWrite) != -1 || CUT_DIE("cannot close file");
         cut_ClearShepherd(shepherd);
         exit(cut_NORMAL_EXIT);
     }
     // parent process only
     int status = 0;
-    close(pipeWrite) != -1 || cut_FatalExit("cannot close file");
+    close(pipeWrite) != -1 || CUT_DIE("cannot close file");
     cut_PipeReader(pipeRead, result);
     do {
         r = waitpid(pid, &status, 0);
     } while (r == -1 && errno == EINTR);
-    r != -1 || cut_FatalExit("cannot wait for unit");
+    r != -1 || CUT_DIE("cannot wait for unit");
     result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
     result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
     if (result->signal)
         result->status = cut_RESULT_SIGNALLED;
     else if (result->returnCode)
         result->status = cut_RESULT_RETURNED_NON_ZERO;
-    close(pipeRead) != -1 || cut_FatalExit("cannot close file");
-}
-
-CUT_PRIVATE int cut_ReadWholeFile(int fd, char **buffer, size_t *length) {
-    int result = 0;
-    size_t capacity = 16;
-    *length = 0;
-    *buffer = (char *) malloc(capacity);
-    if (!*buffer)
-        return 0;
-
-    long offset = lseek(fd, 0, SEEK_CUR);
-    lseek(fd, 0, SEEK_SET);
-
-    int rv; 
-    while ((rv = read(fd, *buffer + *length, capacity - *length - 1)) > 0) {
-        *length += rv;
-        if (*length + 1 == capacity) {
-            capacity *= 2;
-            char *newBuffer = (char *)realloc(*buffer, capacity);
-            if (!newBuffer)
-                break;
-            *buffer = newBuffer;
-        }
-    }
-
-    if (!rv)
-        result = 1;
-    (*buffer)[*length] = '\0';
-
-    lseek(fd, offset, SEEK_SET);
-    return result;
-}
-
-int cut_File(FILE *f, const char *content) {
-    int result = 0;
-    size_t length = strlen(content);
-    size_t fileLength;
-    int fd = fileno(f);
-    fflush(f);
-    char *buf = NULL;
-
-    if (!cut_ReadWholeFile(fd, &buf, &fileLength))
-        cut_FatalExit("cannot read whole file");
-
-    result = length == fileLength && memcmp(content, buf, length) == 0;
-
-    free(buf);
-    return result;
+    close(pipeRead) != -1 || CUT_DIE("cannot close file");
 }
 
 CUT_PRIVATE int cut_IsDebugger() {

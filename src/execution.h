@@ -3,6 +3,9 @@
 
 #include "declarations.h"
 #include "globals.h"
+#include "messages.h"
+#include "output-json.h"
+#include "output-standard.h"
 
 #if defined(__cplusplus)
 
@@ -25,6 +28,8 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
         }
     }
 
+    fflush(stdout);
+    fflush(stderr);
     cut_ResumeIO();
 }
 
@@ -40,6 +45,8 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
         cut_SendOK(counter);
     }
 
+    fflush(stdout);
+    fflush(stderr);
     cut_ResumeIO();
 }
 

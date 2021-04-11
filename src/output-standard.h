@@ -226,13 +226,13 @@ CUT_PRIVATE void cut_InitOutput_std(struct cut_Shepherd *shepherd) {
 
     shepherd->data = malloc(sizeof(struct cut_OutputData_std));
     if (!shepherd->data)
-        cut_FatalExit("cannot allocate memory for output");
+        CUT_DIE("cannot allocate memory for output");
 
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
     
     data->attributes = (struct cut_TestAttributes_std *) malloc(sizeof(struct cut_TestAttributes_std) * cut_unitTests.size);
     if (!data->attributes)
-        cut_FatalExit("cannot allocate memory for output");
+        CUT_DIE("cannot allocate memory for output");
     memset(data->attributes, 0, sizeof(struct cut_TestAttributes_std) * cut_unitTests.size);
 
     shepherd->listTests = cut_ListTests_std;

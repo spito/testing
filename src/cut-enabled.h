@@ -4,27 +4,31 @@
 #include "os-specific.h"
 #include "public-declarations.h"
 
-#define ASSERT(e) do { if (!(e)) {                                                      \
+#define ASSERT(e) do {                                                                  \
+    if (!(e)) {                                                                         \
         cut_Stop(#e, __FILE__, __LINE__);                                               \
     } } while(0)
 
-#define ASSERT_FILE(f, content) do {                                                    \
-    if (!cut_File(f, content)) {                                                        \
-        cut_Stop("content of file is not equal", __FILE__, __LINE__);                   \
-    } } while(0)
+#define ASSERT_FILE(f, content)                                                         \
+    cut_FileCompare(cut_Stop, f, content, CUT_MODE_TEXT, #f, __FILE__, __LINE__)
 
-#define CHECK(e) do { if (!(e)) {                                                       \
+#define ASSERT_FILE_BINARY(f, content)                                                  \
+    cut_FileCompare(cut_Stop, f, content, CUT_MODE_BINARY, #f, __FILE__, __LINE__)
+
+#define CHECK(e) do {                                                                   \
+    if (!(e)) {                                                                         \
         cut_Check(#e, __FILE__, __LINE__);                                              \
     } } while(0)
 
-#define CHECK_FILE(f, content) do {                                                     \
-    if (!cut_File(f, content)) {                                                        \
-        cut_Check("content of file is not equal", __FILE__, __LINE__);                  \
-    } } while(0)
+#define CHECK_FILE(f, content)                                                          \
+    cut_FileCompare(cut_Check, f, content, CUT_MODE_TEXT, #f, __FILE__, __LINE__)
+
+#define CHECK_FILE_BINARY(f, content)                                                   \
+    cut_FileCompare(cut_Check, f, content, CUT_MODE_BINARY, #f, __FILE__, __LINE__)
 
 #define INPUT(content) do {                                                             \
     if (!cut_Input(content)) {                                                          \
-        cut_Stop("cannot set contents as an input file", __FILE__, __LINE__);            \
+        cut_Stop("cannot set contents as an input file", __FILE__, __LINE__);           \
     } } while(0)
 
 #define TEST_POINTS(n) settings.points = n
@@ -60,22 +64,6 @@
 
 #define SUBTEST_NO cut_current
 
-#define DEBUG_MSG(...) cut_DebugMessage(__FILE__, __LINE__, __VA_ARGS__)
-
-#include <stdio.h>
-
-CUT_NS_BEGIN
-
-extern const char *cut_needs[1];
-typedef void(*cut_Instance)(int *, int);
-void cut_Register(cut_Instance instance, const char *name, const char *file, unsigned line, struct cut_Settings *settings);
-int cut_File(FILE *file, const char *content);
-CUT_NORETURN void cut_Stop(const char *text, const char *file, unsigned line);
-void cut_Check(const char *text, const char *file, unsigned line);
-int cut_Input(const char *content);
-void cut_Subtest(int number, const char *name);
-void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...);
-
-CUT_NS_END
+#define DEBUG_MSG(...) cut_FormatMessage(cut_Debug, __FILE__, __LINE__, __VA_ARGS__)
 
 #endif

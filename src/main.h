@@ -1,17 +1,20 @@
 #ifndef CUT_MAIN_H
 #define CUT_MAIN_H
 
-#include <stdlib.h>
-#include <string.h>
 #include <setjmp.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
 
-#include "fragments.h"
 #include "declarations.h"
+#include "execution.h"
+#include "file-operations.h"
+#include "fragments.h"
 #include "globals.h"
 #include "messages.h"
 #include "output.h"
-#include "execution.h"
 #include "queue.h"
 
 #if defined(__linux__)
@@ -30,16 +33,20 @@ CUT_NS_BEGIN
 
 const char *cut_needs[1] = {""};
 
-CUT_NORETURN int cut_FatalExit(const char *reason) {
-    if (cut_outputsRedirected) {
-        FILE *log = fopen(cut_emergencyLog, "w");
-        if (log) {
-            fprintf(log, "CUT internal error during unit test: %s\n", reason);
-            fclose(log);
-        }
-    } else {
-        fprintf(stderr, "CUT internal error: %s\n", reason);
-    }
+CUT_NORETURN int cut_FatalExit(const char *reason, const char *file, unsigned line) {
+    FILE *log = fopen(cut_emergencyLog, "a");
+    if (!log)
+        exit(cut_PANIC);
+
+    time_t now = time(NULL);
+    struct tm timeInfo;
+    localtime_r(&now, &timeInfo);
+
+    char when[80];
+    strftime(when, sizeof(when), "%F %T", &timeInfo);
+    fprintf(log, "%s | %s (%u) | %s\n", when, file, line, reason);
+
+    fclose(log);
     exit(cut_FATAL_EXIT);
 }
 
@@ -60,7 +67,7 @@ void cut_Register(cut_Instance instance, const char *name, const char *file, uns
         cut_unitTests.tests = (struct cut_UnitTest *)realloc(cut_unitTests.tests,
             sizeof(struct cut_UnitTest) * cut_unitTests.capacity);
         if (!cut_unitTests.tests)
-            cut_FatalExit("cannot allocate memory for unit tests");
+            cut_ErrorExit("cannot allocate memory for unit tests");
     }
     cut_unitTests.tests[cut_unitTests.size].instance = instance;
     cut_unitTests.tests[cut_unitTests.size].name = name;

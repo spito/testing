@@ -15,4 +15,6 @@
 # pragma GCC system_header
 #endif
 
+#define _GNU_SOURCE
+
 #endif // CUT_LINUX_DEFINE_H
