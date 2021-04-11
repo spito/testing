@@ -113,6 +113,52 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
     return 1;
 }
 
+CUT_PRIVATE int cut_ErrorCodeToSignal(DWORD returnCode) {
+
+    enum  {
+        SIGHUP = 1,
+        SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT,
+        SIGFPE, SIGKILL, SIGBUS, SIGSEGV, SIGSYS, SIGPIPE,
+        SIGALRM, SIGTERM, SIGUSR1, SIGUSR2
+    };
+
+    if (0 <= (int)returnCode)
+        return 0;
+
+    switch ((returnCode) {
+    case EXCEPTION_ACCESS_VIOLATION:
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+    case EXCEPTION_GUARD_PAGE:
+    case EXCEPTION_STACK_OVERFLOW:
+        return SIGSEGV;
+
+    case EXCEPTION_BREAKPOINT:
+    case STATUS_SINGLE_STEP:
+        return SIGTRAP;
+
+    case EXCEPTION_FLT_DENORMAL_OPERAND:
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+    case EXCEPTION_FLT_INEXACT_RESULT:
+    case EXCEPTION_FLT_INVALID_OPERATION:
+    case EXCEPTION_FLT_OVERFLOW:
+    case EXCEPTION_FLT_STACK_CHECK:
+    case EXCEPTION_FLT_UNDERFLOW:
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+        return SIGFPE;
+
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+    case EXCEPTION_PRIV_INSTRUCTION:
+        return SIGILL;
+
+    case EXCEPTION_IN_PAGE_ERROR:
+    case EXCEPTION_INVALID_HANDLE:
+        return SIGBUS;
+
+    default:
+        return returnCode;
+    }
+}
+
 
 CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest, struct cut_UnitResult *result) {
 
@@ -168,10 +214,14 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     CloseHandle(procInfo.hProcess) || CUT_DIE("cannot close handle");
     CloseHandle(procInfo.hThread) || CUT_DIE("cannot close handle");
 
-    result->returnCode = childResult;
-    result->signal = 0;
-    if (result->returnCode)
-        result->status = cut_RESULT_RETURNED_NON_ZERO;
+    result->returnCode = 0;
+    if ((result->signal = cut_ErrorCodeToSignal(childResult))) {
+        result->status = cut_RESULT_SIGNALLED;
+    }
+    else {
+        result->returnCode = childResult;
+        result->status = result->returnCode ? cut_RESULT_RETURNED_NON_ZERO : cut_RESULT_OK;
+    }
 
     _close(pipeRead) != -1 || CUT_DIE("cannot close file");
 }
