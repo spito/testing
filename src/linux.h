@@ -22,7 +22,6 @@ CUT_PRIVATE int cut_IsTerminalOutput() {
 }
 
 CUT_PRIVATE void cut_RedirectIO() {
-    cut_outputsRedirected = 1;
     cut_stdin = tmpfile();
     cut_stdout = tmpfile();
     cut_stderr = tmpfile();
@@ -45,7 +44,6 @@ CUT_PRIVATE void cut_ResumeIO() {
     dup2(cut_originalStdIn, 0);
     dup2(cut_originalStdOut, 1);
     dup2(cut_originalStdErr, 2);
-    cut_outputsRedirected = 0;
 }
 
 CUT_PRIVATE int cut_ReopenFile(FILE *file) {

@@ -15,7 +15,6 @@ CUT_PRIVATE struct cut_UnitTestArray cut_unitTests = {0, 0, NULL};
 // manipulation either in main instance during no-fork mode
 // or in forked instances
 CUT_PRIVATE int cut_noFork;
-CUT_PRIVATE int cut_outputsRedirected = 0;
 CUT_PRIVATE int cut_pipeWrite = 0;
 CUT_PRIVATE int cut_originalStdIn = 0;
 CUT_PRIVATE int cut_originalStdOut = 0;

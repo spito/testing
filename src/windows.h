@@ -29,7 +29,6 @@ CUT_PRIVATE int cut_CreateTemporaryFile(FILE **file) {
 }
 
 CUT_PRIVATE void cut_RedirectIO() {
-    cut_outputsRedirected = 1;
     cut_CreateTemporaryFile(&cut_stdin) || CUT_DIE("cannot open temporary file");
     cut_CreateTemporaryFile(&cut_stdout) || CUT_DIE("cannot open temporary file");
     cut_CreateTemporaryFile(&cut_stderr) || CUT_DIE("cannot open temporary file");
@@ -51,8 +50,6 @@ CUT_PRIVATE void cut_ResumeIO() {
     _dup2(cut_originalStdIn, 0);
     _dup2(cut_originalStdOut, 1);
     _dup2(cut_originalStdErr, 2);
-
-    cut_outputsRedirected = 0;
 }
 
 CUT_PRIVATE int cut_ReopenFile(FILE *file) {
