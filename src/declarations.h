@@ -139,7 +139,6 @@ struct cut_Shepherd {
     const struct cut_Arguments *arguments;
     struct cut_Queue *queuedTests;
     void (*unitRunner)(struct cut_Shepherd *, int, int, struct cut_UnitResult *);
-    void (*listTests)(const struct cut_Shepherd *);
     void (*startTest)(struct cut_Shepherd *, int testId);
     void (*startSubTests)(struct cut_Shepherd *, int testId, int subtests);
     void (*startSubTest)(struct cut_Shepherd *, int testId, int subtest);
@@ -167,7 +166,7 @@ CUT_PRIVATE void cut_ClearInfo(struct cut_Info *info);
 CUT_PRIVATE void cut_ClearUnitResult(struct cut_UnitResult *result);
 
 CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments);
-CUT_PRIVATE int cut_List(const struct cut_Shepherd *shepherd);
+CUT_PRIVATE int cut_List();
 
 // arguments
 
@@ -190,7 +189,7 @@ CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cu
                                   struct cut_Queue *queue);
 CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd);
 
-CUT_PRIVATE int cut_Runner(int argc, char **argv);
+CUT_PRIVATE int cut_Runner(const struct cut_Arguments *arguments);
 
 // messages
 

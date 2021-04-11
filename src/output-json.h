@@ -152,21 +152,6 @@ CUT_PRIVATE void cut_Clear_json(struct cut_Shepherd *shepherd) {
     free(data);
 }
 
-CUT_PRIVATE void cut_ListTests_json(const struct cut_Shepherd *shepherd) {
-    fprintf(shepherd->output, "[");
-    for (int i = 0; i <  cut_unitTests.size; ++i) {
-        if (i)
-            putc(',', shepherd->output);
-        fprintf(shepherd->output, "{\"name\":\"%s\",\"needs\":[],\"file\":\"%s\",\"line\":%d,\"points\":%0.2f}",
-                cut_unitTests.tests[i].setup->name,
-                cut_unitTests.tests[i].setup->file,
-                cut_unitTests.tests[i].setup->line,
-                cut_unitTests.tests[i].setup->points);
-    }
-    fputs("]", shepherd->output);
-}
-
-
 CUT_PRIVATE void cut_InitOutput_json(struct cut_Shepherd *shepherd) {
 
     shepherd->data = malloc(sizeof(struct cut_OutputData_json));
@@ -183,7 +168,6 @@ CUT_PRIVATE void cut_InitOutput_json(struct cut_Shepherd *shepherd) {
     data->buffer = NULL;
     data->bufferSize = 0;
 
-    shepherd->listTests = cut_ListTests_json;
     shepherd->startTest = cut_StartTest_json;
     shepherd->startSubTests = cut_StartSubTests_json;
     shepherd->endSubTest = cut_EndSubTest_json;

@@ -276,7 +276,6 @@ CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cu
     shepherd->failed = 0;
     shepherd->points = 0;
     shepherd->maxPoints = 0;
-    shepherd->listTests = (void (*)(const struct cut_Shepherd *)) cut_ShepherdNoop;
     shepherd->startTest = (void (*)(struct cut_Shepherd *, int)) cut_ShepherdNoop;
     shepherd->startSubTests = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;
     shepherd->startSubTest = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;
@@ -311,39 +310,24 @@ CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd) {
 }
 
 
-CUT_PRIVATE int cut_Runner(int argc, char **argv) {
+CUT_PRIVATE int cut_Runner(const struct cut_Arguments *arguments) {
     int returnValue = 0;
-    struct cut_Arguments arguments;
     struct cut_Queue queue;
     struct cut_Shepherd shepherd;
 
-    cut_ParseArguments(&arguments, argc, argv);
     cut_InitQueue(&queue);
-    cut_InitShepherd(&shepherd, &arguments, &queue);
-
-    if (arguments.help) {
-        returnValue = cut_Help(&arguments);
-        goto cleanup;
-    }
+    cut_InitShepherd(&shepherd, arguments, &queue);
 
     qsort(cut_unitTests.tests, cut_unitTests.size, sizeof(struct cut_UnitTest), cut_TestComparator);
     cut_EnqueueTests(&shepherd);
 
-    if (arguments.list) {
-        returnValue = cut_List(&shepherd);
-        goto cleanup;
+    if (!cut_PreRun(arguments)) {
+        cut_RunUnitTests(&shepherd);
+
+        shepherd.finalize(&shepherd);
+        returnValue = shepherd.failed;
     }
 
-    if (cut_PreRun(&arguments)) {
-        goto cleanup;
-    }
-
-    cut_RunUnitTests(&shepherd);
-
-    shepherd.finalize(&shepherd);
-    returnValue = shepherd.failed;
-
-cleanup:
     cut_ClearShepherd(&shepherd);
     return returnValue;
 }

@@ -221,7 +221,7 @@ CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments) {
     "\n"
     "Options:\n"
     "\t--help            Print out this help.\n"
-    "\t--list            Print list of all tests. Respect --format.\n"
+    "\t--list            Print list of all tests.\n"
     "\t--format <type>   Use different kinds of output formats:\n"
     "\t         json     use json format\n"
     "\t         <?>      use standard terminal friendly format\n"
@@ -244,13 +244,27 @@ CUT_PRIVATE int cut_Help(const struct cut_Arguments *arguments) {
     return 0;
 }
 
-CUT_PRIVATE int cut_List(const struct cut_Shepherd *shepherd) {
-    shepherd->listTests(shepherd);
+CUT_PRIVATE int cut_List() {
+    fprintf(stderr, "Tests:\n");
+    for (int i = 0; i < cut_unitTests.size; ++i) {
+        struct cut_UnitTest *test = &cut_unitTests.tests[i];
+        fprintf(stderr, "\t%s\n", test->setup->name);
+    }
     return 0;
 }
 
 int main(int argc, char **argv) {
-    return cut_Runner(argc, argv);
+
+    struct cut_Arguments arguments;
+
+    cut_ParseArguments(&arguments, argc, argv);
+
+    if (arguments.help)
+        return cut_Help(&arguments);
+    if (arguments.list)
+        return cut_List();
+
+    return cut_Runner(&arguments);
 }
 
 CUT_NS_END
