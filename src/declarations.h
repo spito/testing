@@ -64,11 +64,8 @@ struct cut_UnitResult {
 };
 
 struct cut_UnitTest {
-    cut_Instance instance;
-    const char *name;
-    const char *file;
-    unsigned line;
-    struct cut_Settings *settings;
+    struct cut_Setup *setup;
+    struct cut_UnitResult result;
     enum cut_SkipReason skipReason;
 };
 
@@ -158,17 +155,6 @@ struct cut_EnqueuePair {
     int retry;
 };
 
-
-// core:public
-
-typedef void(*cut_Instance)(int *, int);
-void cut_Register(cut_Instance instance, const char *name, const char *file, unsigned line, struct cut_Settings *settings);
-int cut_File(FILE *file, const char *content);
-CUT_NORETURN void cut_Stop(const char *text, const char *file, unsigned line);
-void cut_Check(const char *text, const char *file, unsigned line);
-int cut_Input(const char *content);
-void cut_Subtest(int number, const char *name);
-void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...);
 
 // core:private
 

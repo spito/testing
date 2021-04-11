@@ -99,7 +99,7 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
         close(pipeRead) != -1 || CUT_DIE("cannot close file");
         cut_pipeWrite = pipeWrite;
 
-        int timeout = cut_unitTests.tests[testId].settings->timeout;
+        int timeout = cut_unitTests.tests[testId].setup->timeout;
         if (timeout) {
             signal(SIGALRM, cut_SigAlrm);
             alarm(timeout);

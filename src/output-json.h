@@ -61,7 +61,7 @@ CUT_PRIVATE void cut_PrintInfo_json(struct cut_Shepherd *shepherd, int testId, c
     }
     switch (result->status) {
     case cut_RESULT_TIMED_OUT:
-        fprintf(shepherd->output, ", \"timeout\": %d", cut_unitTests.tests[testId].settings->timeout);
+        fprintf(shepherd->output, ", \"timeout\": %d", cut_unitTests.tests[testId].setup->timeout);
         break;
     case cut_RESULT_SIGNALLED:
         fprintf(shepherd->output, ", \"signal\": \"%s\"", cut_Signal(result->signal));
@@ -94,7 +94,7 @@ CUT_PRIVATE void cut_PrintInfo_json(struct cut_Shepherd *shepherd, int testId, c
 CUT_PRIVATE void cut_StartTest_json(struct cut_Shepherd *shepherd, int testId) {
     struct cut_OutputData_json *data = (struct cut_OutputData_json *)shepherd->data;
     fputc(data->testNumber++ ? ',' : '[', shepherd->output);
-    fprintf(shepherd->output, "{\"name\": \"%s\"", cut_unitTests.tests[testId].name);
+    fprintf(shepherd->output, "{\"name\": \"%s\"", cut_unitTests.tests[testId].setup->name);
     fflush(shepherd->output);
 }
 
@@ -135,7 +135,7 @@ CUT_PRIVATE void cut_EndTest_json(struct cut_Shepherd *shepherd, int testId, con
     }
     cut_PrintInfo_json(shepherd, testId, result);
     fprintf(shepherd->output, ", \"points\":%0.2f}", result->status == cut_RESULT_OK
-            ? cut_unitTests.tests[testId].settings->points
+            ? cut_unitTests.tests[testId].setup->points
             : 0.0);
     fflush(shepherd->output);
 }
@@ -158,10 +158,10 @@ CUT_PRIVATE void cut_ListTests_json(const struct cut_Shepherd *shepherd) {
         if (i)
             putc(',', shepherd->output);
         fprintf(shepherd->output, "{\"name\":\"%s\",\"needs\":[],\"file\":\"%s\",\"line\":%d,\"points\":%0.2f}",
-                cut_unitTests.tests[i].name,
-                cut_unitTests.tests[i].file,
-                cut_unitTests.tests[i].line,
-                cut_unitTests.tests[i].settings->points);
+                cut_unitTests.tests[i].setup->name,
+                cut_unitTests.tests[i].setup->file,
+                cut_unitTests.tests[i].setup->line,
+                cut_unitTests.tests[i].setup->points);
     }
     fputs("]", shepherd->output);
 }

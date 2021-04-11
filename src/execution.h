@@ -18,7 +18,7 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     if (!setjmp(cut_executionPoint)) {
         try {
             int counter = 0;
-            cut_unitTests.tests[testId].instance(&counter, subtest);
+            cut_unitTests.tests[testId].setup->test(&counter, subtest);
             cut_SendOK(counter);
         } catch (const std::exception &e) {
             std::string name = typeid(e).name();
@@ -41,7 +41,7 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
     cut_RedirectIO();
     if (!setjmp(cut_executionPoint)) {
         int counter = 0;
-        cut_unitTests.tests[testId].instance(&counter, subtest);
+        cut_unitTests.tests[testId].setup->test(&counter, subtest);
         cut_SendOK(counter);
     }
 
@@ -90,7 +90,7 @@ CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd) {
 
         if (cut_unitTests.tests[item->testId].skipReason != cut_SKIP_REASON_NO_SKIP)
             result.status = (enum cut_ResultStatus) cut_unitTests.tests[item->testId].skipReason;
-        else if (cut_unitTests.tests[item->testId].settings->suppress)
+        else if (cut_unitTests.tests[item->testId].setup->suppress)
             result.status = cut_RESULT_SUPPRESSED;
         else if (cut_FilterOutUnit(shepherd->arguments, item->testId))
             result.status = cut_RESULT_FILTERED_OUT;
@@ -135,7 +135,7 @@ CUT_PRIVATE void cut_RunUnitSubTests(struct cut_Shepherd *shepherd, int testId, 
     if (shepherd->arguments->subtestId >= 0) {
         if (subtests <= shepherd->arguments->subtestId) {
             cut_ErrorExit("Invalid argument - requested to run subtest %d, only avaliable %d subtests are for %s test",
-                shepherd->arguments->subtestId, subtests, cut_unitTests.tests[testId].name);
+                shepherd->arguments->subtestId, subtests, cut_unitTests.tests[testId].setup->name);
         }
         cut_RunUnitSubTest(shepherd, testId, shepherd->arguments->subtestId);
         return;
@@ -152,7 +152,7 @@ CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, int tes
         return testId != arguments->testId;
     if (!arguments->matchSize)
         return 0;
-    const char *name = cut_unitTests.tests[testId].name;
+    const char *name = cut_unitTests.tests[testId].setup->name;
     for (int i = 0; i < arguments->matchSize; ++i) {
         if (strstr(name, arguments->match[i]))
             return 0;
@@ -164,9 +164,9 @@ CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs) {
     struct cut_UnitTest *lhs = (struct cut_UnitTest *)_lhs;
     struct cut_UnitTest *rhs = (struct cut_UnitTest *)_rhs;
 
-    int result = strcmp(lhs->file, rhs->file);
+    int result = strcmp(lhs->setup->file, rhs->setup->file);
     if (!result)
-        result = lhs->line <= rhs->line ? -1 : 1;
+        result = lhs->setup->line <= rhs->setup->line ? -1 : 1;
     return result;
 }
 
@@ -199,23 +199,23 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
     memset(sortedTests, 0, sizeof(struct cut_SortedTestItem) * cut_unitTests.size);
 
     for (int testId = 0; testId < cut_unitTests.size; ++testId) {
-        sortedTests[testId].name = cut_unitTests.tests[testId].name;
+        sortedTests[testId].name = cut_unitTests.tests[testId].setup->name;
         sortedTests[testId].testId = testId;
     }
 
     qsort(sortedTests, cut_unitTests.size, sizeof(struct cut_SortedTestItem), cut_SortTestsByName);
 
     for (int testId = 0; testId < cut_unitTests.size; ++testId) {
-        if (shepherd->arguments->timeoutDefined || !cut_unitTests.tests[testId].settings->timeoutDefined) {
-            cut_unitTests.tests[testId].settings->timeout = shepherd->arguments->timeout;
+        if (shepherd->arguments->timeoutDefined || !cut_unitTests.tests[testId].setup->timeoutDefined) {
+            cut_unitTests.tests[testId].setup->timeout = shepherd->arguments->timeout;
         }
 
-        if (cut_unitTests.tests[testId].settings->needSize == 1) {
+        if (cut_unitTests.tests[testId].setup->needSize == 1) {
             tests[testId].self = cut_QueuePushTest(shepherd->queuedTests, testId);
         }
         else {
-            tests[testId].appliedNeeds = (int *) malloc(sizeof(int) * cut_unitTests.tests[testId].settings->needSize);
-            memset(tests[testId].appliedNeeds, 0, sizeof(int) * cut_unitTests.tests[testId].settings->needSize);
+            tests[testId].appliedNeeds = (int *) malloc(sizeof(int) * cut_unitTests.tests[testId].setup->needSize);
+            memset(tests[testId].appliedNeeds, 0, sizeof(int) * cut_unitTests.tests[testId].setup->needSize);
             cut_QueuePushTest(&localQueue, testId);
         }
     }
@@ -223,16 +223,16 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
     struct cut_QueueItem *current = cut_QueuePopTest(&localQueue);
     for (; current; current = cut_QueuePopTest(&localQueue)) {
         int testId = current->testId;
-        const struct cut_Settings *settings = cut_unitTests.tests[testId].settings;
-        int needSatisfaction = settings->needSize - 1;
-        for (size_t n = 1; n < settings->needSize; ++n, --needSatisfaction) {
+        const struct cut_Setup *setup = cut_unitTests.tests[testId].setup;
+        int needSatisfaction = setup->needSize - 1;
+        for (size_t n = 1; n < setup->needSize; ++n, --needSatisfaction) {
             if (tests[testId].appliedNeeds[n])
                 continue;
             struct cut_SortedTestItem *need = (struct cut_SortedTestItem *) bsearch(
-                settings->needs[n], sortedTests, cut_unitTests.size, sizeof(struct cut_SortedTestItem),
+                setup->needs[n], sortedTests, cut_unitTests.size, sizeof(struct cut_SortedTestItem),
                 cut_TestFinder);
             if (!need)
-                cut_ErrorExit("Test %s depends on %s; such test does not exists, however.", cut_unitTests.tests[testId].name, settings->needs[n]);
+                cut_ErrorExit("Test %s depends on %s; such test does not exists, however.", setup->name, setup->needs[n]);
             if (!tests[need->testId].self) {
                 cut_QueueRePushTest(&localQueue, current);
                 if (cut_unitTests.size < ++tests[testId].retry) {
@@ -245,7 +245,7 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
         }
         if (needSatisfaction)
             continue;
-        for (size_t n = 1; n < settings->needSize; ++n) {
+        for (size_t n = 1; n < setup->needSize; ++n) {
             int needId = tests[testId].appliedNeeds[n] - 1;
             if (!tests[testId].self)
                 tests[testId].self = cut_QueuePushTest(&tests[needId].self->depending, testId);

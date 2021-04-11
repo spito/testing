@@ -21,7 +21,7 @@ CUT_PRIVATE void cut_StartTest_std(struct cut_Shepherd *shepherd, int testId) {
 
     ++shepherd->executed;
 
-    int base = fprintf(shepherd->output, "[%3i] %s", shepherd->executed, cut_unitTests.tests[testId].name);
+    int base = fprintf(shepherd->output, "[%3i] %s", shepherd->executed, cut_unitTests.tests[testId].setup->name);
     fflush(shepherd->output);
     data->attributes[testId].base = base;
     data->attributes[testId].subtests = 0;
@@ -46,7 +46,7 @@ CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char 
     }
     switch (result->status) {
     case cut_RESULT_TIMED_OUT:
-        fprintf(shepherd->output, "%stimed out (%d s)\n", indent, cut_unitTests.tests[testId].settings->timeout);
+        fprintf(shepherd->output, "%stimed out (%d s)\n", indent, cut_unitTests.tests[testId].setup->timeout);
         extended = 1;
         break;
     case cut_RESULT_SIGNALLED:
@@ -141,11 +141,11 @@ CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId
         putc('\n', shepherd->output);
     fflush(shepherd->output);
 
-    shepherd->maxPoints += cut_unitTests.tests[testId].settings->points;
+    shepherd->maxPoints += cut_unitTests.tests[testId].setup->points;
     switch (result->status) {
     case cut_RESULT_OK:
         ++shepherd->succeeded;
-        shepherd->points += cut_unitTests.tests[testId].settings->points;
+        shepherd->points += cut_unitTests.tests[testId].setup->points;
         break;
     case cut_RESULT_SUPPRESSED:
         ++shepherd->suppressed;
@@ -165,7 +165,7 @@ CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId
 CUT_PRIVATE void cut_EndSubtests_std(struct cut_Shepherd *shepherd, int testId) {
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
 
-    data->attributes[testId].base = fprintf(shepherd->output, "[%3i] %s (overall)", shepherd->executed, cut_unitTests.tests[testId].name);
+    data->attributes[testId].base = fprintf(shepherd->output, "[%3i] %s (overall)", shepherd->executed, cut_unitTests.tests[testId].setup->name);
 
     struct cut_UnitResult result;
     memset(&result, 0, sizeof(result));
@@ -218,7 +218,7 @@ CUT_PRIVATE void cut_Clear_std(struct cut_Shepherd *shepherd) {
 CUT_PRIVATE void cut_ListTests_std(const struct cut_Shepherd *shepherd) {
     fprintf(shepherd->output, "Tests:\n");
     for (int i = 0; i <  cut_unitTests.size; ++i) {
-        fprintf(shepherd->output, "\t%s\n", cut_unitTests.tests[i].name);
+        fprintf(shepherd->output, "\t%s\n", cut_unitTests.tests[i].setup->name);
     }
 }
 

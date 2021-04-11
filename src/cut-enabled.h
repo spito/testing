@@ -31,24 +31,28 @@
         cut_Stop("cannot set contents as an input file", __FILE__, __LINE__);           \
     } } while(0)
 
-#define TEST_POINTS(n) settings.points = n
-#define TEST_TIMEOUT(n) settings.timeout = n, settings.timeoutDefined = 1
-#define TEST_SUPPRESS settings.suppress = 1
+#define TEST_POINTS(n) cut_setup.points = n
+#define TEST_TIMEOUT(n) cut_setup.timeout = n, cut_setup.timeoutDefined = 1
+#define TEST_SUPPRESS cut_setup.suppress = 1
 #define TEST_NEEDS(...) (void)0 ; static const char *cut_needs[] = {"", ## __VA_ARGS__ }; (void)0
 
 #define CUT_APPLY_ARGS(dummy, ...) (void)0, ## __VA_ARGS__ ;
+#define CUT_TEST_NAME(name) cut_Test_ ## name ## _ ## __LINE__
 
-#define TEST(name, ...)                                                                 \
-    void cut_instance_ ## name(int *, int);                                             \
-    CUT_CONSTRUCTOR(cut_Register ## name) {                                             \
-        static struct cut_Settings settings = {0, 0, 0, 0.0, NULL, 0};                  \
+#define TEST(testName, ...)                                                             \
+    void CUT_TEST_NAME(testName) (int *, int);                                          \
+    CUT_CONSTRUCTOR(cut_Register ## testName) {                                         \
+        static struct cut_Setup cut_setup = CUT_SETUP_INIT;                             \
         CUT_APPLY_ARGS(dummy, ## __VA_ARGS__ );                                         \
-        settings.needSize = sizeof(cut_needs)/sizeof(*cut_needs);                       \
-        settings.needs = cut_needs;                                                     \
-        cut_Register(cut_instance_ ## name,                                             \
-                     #name, __FILE__, __LINE__, &settings);                             \
+        cut_setup.test = CUT_TEST_NAME(testName);                                       \
+        cut_setup.name = #testName;                                                     \
+        cut_setup.file = __FILE__;                                                      \
+        cut_setup.line = 0;                                                             \
+        cut_setup.needSize = sizeof(cut_needs)/sizeof(*cut_needs);                      \
+        cut_setup.needs = cut_needs;                                                    \
+        cut_Register(&cut_setup);                                                       \
     }                                                                                   \
-    void cut_instance_ ## name(CUT_UNUSED(int *cut_subtest),                            \
+    void CUT_TEST_NAME(testName) (CUT_UNUSED(int *cut_subtest),                         \
                                CUT_UNUSED(int cut_current))
 
 #define SUBTEST(name)                                                                   \
