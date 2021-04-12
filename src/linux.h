@@ -73,7 +73,7 @@ CUT_PRIVATE void cut_SigAlrm(CUT_UNUSED(int signum)) {
     _exit(cut_NORMAL_EXIT);
 }
 
-CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest, struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, struct cut_UnitTest *test) {
     int r;
     int pipefd[2];
     r = pipe(pipefd);
@@ -97,12 +97,12 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
         close(pipeRead) != -1 || CUT_DIE("cannot close file");
         cut_pipeWrite = pipeWrite;
 
-        int timeout = cut_unitTests.tests[testId].setup->timeout;
+        int timeout = test->setup->timeout;
         if (timeout) {
             signal(SIGALRM, cut_SigAlrm);
             alarm(timeout);
         }
-        cut_ExceptionBypass(testId, subtest);
+        cut_ExceptionBypass(test);
 
         close(cut_pipeWrite) != -1 || CUT_DIE("cannot close file");
         cut_ClearShepherd(shepherd);
@@ -111,17 +111,17 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     // parent process only
     int status = 0;
     close(pipeWrite) != -1 || CUT_DIE("cannot close file");
-    cut_PipeReader(pipeRead, result);
+    cut_PipeReader(pipeRead, test);
     do {
         r = waitpid(pid, &status, 0);
     } while (r == -1 && errno == EINTR);
     r != -1 || CUT_DIE("cannot wait for unit");
-    result->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
-    result->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
-    if (result->signal)
-        result->status = cut_RESULT_SIGNALLED;
-    else if (result->returnCode)
-        result->status = cut_RESULT_RETURNED_NON_ZERO;
+    test->currentResult->returnCode = WIFEXITED(status) ? WEXITSTATUS(status) : 0;
+    test->currentResult->signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+    if (test->currentResult->signal)
+        test->currentResult->status = cut_RESULT_SIGNALLED;
+    else if (test->currentResult->returnCode)
+        test->currentResult->status = cut_RESULT_RETURNED_NON_ZERO;
     close(pipeRead) != -1 || CUT_DIE("cannot close file");
 }
 

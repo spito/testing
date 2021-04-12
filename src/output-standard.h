@@ -1,13 +1,19 @@
 #ifndef CUT_OUTPUT_STD_H
 #define CUT_OUTPUT_STD_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "declarations.h"
+#include "globals.h"
 
 CUT_NS_BEGIN
 
 struct cut_TestAttributes_std {
     int subtests;
     int subtestsFailed;
+    int repeatedSubtest;
     int base;
 };
 
@@ -16,29 +22,38 @@ struct cut_OutputData_std {
 };
 
 
-CUT_PRIVATE void cut_StartTest_std(struct cut_Shepherd *shepherd, int testId) {
+CUT_PRIVATE void cut_StartTest_std(struct cut_Shepherd *shepherd, const struct cut_UnitTest *test) {
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
 
     ++shepherd->executed;
 
-    int base = fprintf(shepherd->output, "[%3i] %s", shepherd->executed, cut_unitTests.tests[testId].setup->name);
+    int base = fprintf(shepherd->output, "[%3i] %s", shepherd->executed, test->setup->name);
     fflush(shepherd->output);
-    data->attributes[testId].base = base;
-    data->attributes[testId].subtests = 0;
-    data->attributes[testId].subtestsFailed = 0;
+    data->attributes[test->id].base = base;
+    data->attributes[test->id].subtests = 0;
+    data->attributes[test->id].subtestsFailed = 0;
 }
 
-CUT_PRIVATE void cut_StartSubTests_std(struct cut_Shepherd *shepherd, int testId, int subtests) {
+CUT_PRIVATE void cut_StartSubTests_std(struct cut_Shepherd *shepherd, const struct cut_UnitTest *test) {
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
-    data->attributes[testId].subtests = subtests;
+    data->attributes[test->id].subtests = test->resultSize - 1;
+    data->attributes[test->id].repeatedSubtest = 1;
 
-    fprintf(shepherd->output, ": %d subtests\n", subtests);
+    for (int i = 2; i < test->resultSize; ++i) {
+        if (strcmp(test->results[i - 1].name, test->results[i].name)) {
+            data->attributes[test->id].repeatedSubtest = 0;
+            break;
+        }
+    }
+
+    fprintf(shepherd->output, ": %d subtests\n", data->attributes[test->id].subtests);
     fflush(shepherd->output);
 }
 
 
-CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char *indent, int testId, const struct cut_UnitResult *result) {
+CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char *indent, const struct cut_UnitTest *test) {
     int extended = 0;
+    const struct cut_UnitResult *result = test->currentResult;
     for (const struct cut_Info *current = result->check; current; current = current->next) {
         fprintf(shepherd->output, "%scheck '%s' (%s:%d)\n", indent, current->message,
                 cut_ShortPath(shepherd->arguments, current->file), current->line);
@@ -46,7 +61,7 @@ CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char 
     }
     switch (result->status) {
     case cut_RESULT_TIMED_OUT:
-        fprintf(shepherd->output, "%stimed out (%d s)\n", indent, cut_unitTests.tests[testId].setup->timeout);
+        fprintf(shepherd->output, "%stimed out (%d s)\n", indent, test->setup->timeout);
         extended = 1;
         break;
     case cut_RESULT_SIGNALLED:
@@ -79,28 +94,28 @@ CUT_PRIVATE int cut_PrintDetailResult(struct cut_Shepherd *shepherd, const char 
     return extended;
 }
 
-CUT_PRIVATE void cut_EndSubTest_std(struct cut_Shepherd *shepherd, int testId, int subtest, const struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_EndSubTest_std(struct cut_Shepherd *shepherd, const struct cut_UnitTest *test) {
     static const char *shortIndent = "    ";
     static const char *longIndent = "        ";
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
     enum cut_Colors color;
-    const char *status = cut_GetStatus(result, &color);
+    const char *status = cut_GetStatus(test->currentResult, &color);
     int lastPosition = 80 - 1 - strlen(status);
-    if (result->status != cut_RESULT_OK)
-        ++data->attributes[testId].subtestsFailed;
+    if (test->currentResult->status != cut_RESULT_OK)
+        ++data->attributes[test->id].subtestsFailed;
 
     const char *indent = shortIndent;
-    if (result->number <= 1)
-        lastPosition -= fprintf(shepherd->output, "%s%s", indent, result->name);
+    if (!data->attributes[test->id].repeatedSubtest || test->currentResult->id <= 1)
+        lastPosition -= fprintf(shepherd->output, "%s%s", indent, test->currentResult->name);
     else {
         lastPosition -= fprintf(shepherd->output, "%s", indent);
-        int length = strlen(result->name);
+        int length = strlen(test->currentResult->name);
         for (int i = 0; i < length; ++i)
             putc(' ', shepherd->output);
         lastPosition -= length;
     }
-    if (result->number)
-        lastPosition -= fprintf(shepherd->output, " #%d", result->number);
+    if (data->attributes[test->id].repeatedSubtest)
+        lastPosition -= fprintf(shepherd->output, " #%d", test->currentResult->id);
     indent = longIndent;
 
     for (int i = 0; i < lastPosition; ++i) {
@@ -112,19 +127,19 @@ CUT_PRIVATE void cut_EndSubTest_std(struct cut_Shepherd *shepherd, int testId, i
         cut_PrintColorized(shepherd->output, color, status);
 
     putc('\n', shepherd->output);
-    if (cut_PrintDetailResult(shepherd, indent, testId, result))
+    if (cut_PrintDetailResult(shepherd, indent, test))
         putc('\n', shepherd->output);
     fflush(shepherd->output);
 
 
 }
 
-CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId, const struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, const struct cut_UnitTest *test) {
     static const char *indent = "    ";
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
     enum cut_Colors color;
-    const char *status = cut_GetStatus(result, &color);
-    int lastPosition = 80 - 1 - strlen(status) - data->attributes[testId].base;
+    const char *status = cut_GetStatus(test->results, &color);
+    int lastPosition = 80 - 1 - strlen(status) - data->attributes[test->id].base;
     int extended = 0;
 
     for (int i = 0; i < lastPosition; ++i) {
@@ -136,16 +151,18 @@ CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId
         cut_PrintColorized(shepherd->output, color, status);
 
     putc('\n', shepherd->output);
-    extended = cut_PrintDetailResult(shepherd, indent, testId, result);
-    if (extended)
-        putc('\n', shepherd->output);
+    if (!data->attributes[test->id].subtests) {
+        extended = cut_PrintDetailResult(shepherd, indent, test);
+        if (extended)
+            putc('\n', shepherd->output);
+    }
     fflush(shepherd->output);
 
-    shepherd->maxPoints += cut_unitTests.tests[testId].setup->points;
-    switch (result->status) {
+    shepherd->maxPoints += test->setup->points;
+    switch (test->results->status) {
     case cut_RESULT_OK:
         ++shepherd->succeeded;
-        shepherd->points += cut_unitTests.tests[testId].setup->points;
+        shepherd->points += test->setup->points;
         break;
     case cut_RESULT_SUPPRESSED:
         ++shepherd->suppressed;
@@ -162,25 +179,20 @@ CUT_PRIVATE void cut_EndSingleTest_std(struct cut_Shepherd *shepherd, int testId
     }
 }
 
-CUT_PRIVATE void cut_EndSubtests_std(struct cut_Shepherd *shepherd, int testId) {
+CUT_PRIVATE void cut_EndSubtests_std(struct cut_Shepherd *shepherd, const struct cut_UnitTest *test) {
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
 
-    data->attributes[testId].base = fprintf(shepherd->output, "[%3i] %s (overall)", shepherd->executed, cut_unitTests.tests[testId].setup->name);
-
-    struct cut_UnitResult result;
-    memset(&result, 0, sizeof(result));
-    result.status = data->attributes[testId].subtestsFailed ? cut_RESULT_FAILED : cut_RESULT_OK;
-
-    cut_EndSingleTest_std(shepherd, testId, &result);
+    data->attributes[test->id].base = fprintf(shepherd->output, "[%3i] %s (overall)", shepherd->executed, test->setup->name);
+    cut_EndSingleTest_std(shepherd, test);
 }
 
-CUT_PRIVATE void cut_EndTest_std(struct cut_Shepherd *shepherd, int testId, const struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_EndTest_std(struct cut_Shepherd *shepherd, const struct cut_UnitTest *test) {
     struct cut_OutputData_std *data = (struct cut_OutputData_std *)shepherd->data;
 
-    if (data->attributes[testId].subtests)
-        cut_EndSubtests_std(shepherd, testId);
+    if (data->attributes[test->id].subtests)
+        cut_EndSubtests_std(shepherd, test);
     else
-        cut_EndSingleTest_std(shepherd, testId, result);
+        cut_EndSingleTest_std(shepherd, test);
 }
 
 CUT_PRIVATE void cut_Finalize_std(struct cut_Shepherd *shepherd) {

@@ -13,13 +13,12 @@
 # include <typeinfo>
 # include <string>
 
-CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
+CUT_PRIVATE void cut_ExceptionBypass(struct cut_UnitTest *test) {
     cut_RedirectIO();
     if (!setjmp(cut_executionPoint)) {
         try {
-            int counter = 0;
-            cut_unitTests.tests[testId].setup->test(&counter, subtest);
-            cut_SendOK(counter);
+            test->setup->test(0, test->currentResult->id);
+            cut_SendOK();
         } catch (const std::exception &e) {
             std::string name = typeid(e).name();
             cut_StopException(name.c_str(), e.what() ? e.what() : "(no reason)");
@@ -37,12 +36,11 @@ CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
 
 CUT_NS_BEGIN
 
-CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest) {
+CUT_PRIVATE void cut_ExceptionBypass(struct cut_UnitTest *test) {
     cut_RedirectIO();
     if (!setjmp(cut_executionPoint)) {
-        int counter = 0;
-        cut_unitTests.tests[testId].setup->test(&counter, subtest);
-        cut_SendOK(counter);
+        test->setup->test(0, test->currentResult->id);
+        cut_SendOK();
     }
 
     fflush(stdout);
@@ -56,26 +54,42 @@ CUT_NS_END
 
 CUT_NS_BEGIN
 
-CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, int testId, int subtest,
-                                     struct cut_UnitResult *result) {
-    cut_ExceptionBypass(testId, subtest);
-    cut_PipeReader(-1, result);
+CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, struct cut_UnitTest *test) {
+    cut_ExceptionBypass(test);
+    cut_PipeReader(-1, test);
     cut_ResetLocalMessage();
-    result->returnCode = 0;
-    result->signal = 0;
 }
 
-CUT_PRIVATE void cut_RunUnitTest(struct cut_Shepherd *shepherd, struct cut_UnitResult *result, int testId) {
-    shepherd->unitRunner(shepherd, testId, 0, result);
+CUT_PRIVATE void cut_RunUnitTest(struct cut_Shepherd *shepherd, struct cut_UnitTest *test) {
 
-    if (result->subtests > 0 && result->status == cut_RESULT_OK)
-        cut_RunUnitSubTests(shepherd, testId, result->subtests);
+    shepherd->unitRunner(shepherd, test);
+
+    if (test->currentResult->status != cut_RESULT_OK || test->resultSize == 1)
+        return;
+    int start = 1;
+    int stop = test->resultSize;
+    shepherd->startSubTests(shepherd, test);
+
+    if (0 < shepherd->arguments->subtestId) {
+        if (test->resultSize <= shepherd->arguments->subtestId)
+            cut_ErrorExit("Invalid argument - requested to run subtest %d, only avaliable %d subtests are for %s test",
+                shepherd->arguments->subtestId, test->resultSize, test->setup->name);
+        start = shepherd->arguments->subtestId;
+        stop = shepherd->arguments->subtestId + 1;
+    }
+
+    for (int i = start; i < stop; ++i) {
+        test->currentResult = &test->results[i];
+        shepherd->startSubTest(shepherd, test);
+        shepherd->unitRunner(shepherd, test);
+        shepherd->endSubTest(shepherd, test);
+    }
 }
 
-CUT_PRIVATE void cut_SkipDependingUnitTests(struct cut_Shepherd *shepherd, struct cut_QueueItem *item, enum cut_SkipReason reason) {
+CUT_PRIVATE void cut_SkipDependingUnitTests(struct cut_Shepherd *shepherd, struct cut_QueueItem *item, enum cut_ResultStatus result) {
     struct cut_QueueItem *cursor = item->depending.first;
     for (; cursor; cursor = cursor->next) {
-        cut_unitTests.tests[cursor->testId].skipReason = reason;
+        cut_unitTests.tests[cursor->testId].results[0].status = result;
     }
 }
 
@@ -83,78 +97,42 @@ CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd) {
 
     struct cut_QueueItem *item = NULL;
     while ((item = cut_QueuePopTest(shepherd->queuedTests))) {
-        struct cut_UnitResult result;
-        memset(&result, 0, sizeof(result));
+        struct cut_UnitTest *test = &cut_unitTests.tests[item->testId];
 
-        shepherd->startTest(shepherd, item->testId);
+        shepherd->startTest(shepherd, test);
 
-        if (cut_unitTests.tests[item->testId].skipReason != cut_SKIP_REASON_NO_SKIP)
-            result.status = (enum cut_ResultStatus) cut_unitTests.tests[item->testId].skipReason;
-        else if (cut_unitTests.tests[item->testId].setup->suppress)
-            result.status = cut_RESULT_SUPPRESSED;
-        else if (cut_FilterOutUnit(shepherd->arguments, item->testId))
-            result.status = cut_RESULT_FILTERED_OUT;
-        else
-            cut_RunUnitTest(shepherd, &result, item->testId);
-
-        switch (result.status) {
-        case cut_RESULT_OK:
-            break;
-        case cut_RESULT_FILTERED_OUT:
-            cut_SkipDependingUnitTests(shepherd, item, cut_SKIP_REASON_FILTERED_OUT);
-            break;
-        case cut_RESULT_SUPPRESSED:
-            cut_SkipDependingUnitTests(shepherd, item, cut_SKIP_REASON_SUPPRESSED);
-            break;
-        default:
-            cut_SkipDependingUnitTests(shepherd, item, cut_SKIP_REASON_FAILED);
-            break;
+        if (test->results[0].status == cut_RESULT_UNKNOWN) {
+            if (test->setup->suppress)
+                test->results[0].status = cut_RESULT_SUPPRESSED;
+            else if (cut_FilterOutUnit(shepherd->arguments, test))
+                test->results[0].status = cut_RESULT_FILTERED_OUT;
+            else
+                cut_RunUnitTest(shepherd, test);
         }
+
+        for (int s = 1; s < test->resultSize; ++s) {
+            if (test->results[s].status != cut_RESULT_OK) {
+                test->results[0].status = cut_RESULT_FAILED;
+            }
+        }
+
+        if (test->results[0].status != cut_RESULT_OK)
+            cut_SkipDependingUnitTests(shepherd, item, cut_RESULT_SKIPPED);
+
         cut_QueueMeltTest(shepherd->queuedTests, item);
 
-        shepherd->endTest(shepherd, item->testId, &result);
-        cut_ClearUnitResult(&result);
+        shepherd->endTest(shepherd, test);
     }
 }
 
-CUT_PRIVATE void cut_RunUnitSubTest(struct cut_Shepherd *shepherd, int testId, int subtest) {
-    struct cut_UnitResult result;
-    memset(&result, 0, sizeof(result));
-
-    shepherd->startSubTest(shepherd, testId, subtest);
-    shepherd->unitRunner(shepherd, testId, subtest, &result);
-    shepherd->endSubTest(shepherd, testId, subtest, &result);
-
-    cut_ClearUnitResult(&result);
-}
-
-CUT_PRIVATE void cut_RunUnitSubTests(struct cut_Shepherd *shepherd, int testId, int subtests) {
-
-    shepherd->startSubTests(shepherd, testId, subtests);
-
-    if (shepherd->arguments->subtestId >= 0) {
-        if (subtests <= shepherd->arguments->subtestId) {
-            cut_ErrorExit("Invalid argument - requested to run subtest %d, only avaliable %d subtests are for %s test",
-                shepherd->arguments->subtestId, subtests, cut_unitTests.tests[testId].setup->name);
-        }
-        cut_RunUnitSubTest(shepherd, testId, shepherd->arguments->subtestId);
-        return;
-    }
-
-    for (int subtest = 1; subtest <= subtests; ++subtest) {
-        cut_RunUnitSubTest(shepherd, testId, subtest);
-    }
-}
-
-
-CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, int testId) {
+CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, const struct cut_UnitTest *test) {
     if (arguments->testId >= 0)
-        return testId != arguments->testId;
+        return test->id != arguments->testId;
     if (!arguments->matchSize)
         return 0;
-    const char *name = cut_unitTests.tests[testId].setup->name;
+
     for (int i = 0; i < arguments->matchSize; ++i) {
-        if (strstr(name, arguments->match[i]))
+        if (strstr(test->setup->name, arguments->match[i]))
             return 0;
     }
     return 1;
@@ -195,17 +173,8 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
     struct cut_Queue localQueue;
     cut_InitQueue(&localQueue);
 
-    struct cut_SortedTestItem *sortedTests = (struct cut_SortedTestItem *) malloc(sizeof(struct cut_SortedTestItem) * cut_unitTests.size);
-    memset(sortedTests, 0, sizeof(struct cut_SortedTestItem) * cut_unitTests.size);
-
     for (int testId = 0; testId < cut_unitTests.size; ++testId) {
-        sortedTests[testId].name = cut_unitTests.tests[testId].setup->name;
-        sortedTests[testId].testId = testId;
-    }
-
-    qsort(sortedTests, cut_unitTests.size, sizeof(struct cut_SortedTestItem), cut_SortTestsByName);
-
-    for (int testId = 0; testId < cut_unitTests.size; ++testId) {
+        cut_unitTests.tests[testId].id = testId;
         if (shepherd->arguments->timeoutDefined || !cut_unitTests.tests[testId].setup->timeoutDefined) {
             cut_unitTests.tests[testId].setup->timeout = shepherd->arguments->timeout;
         }
@@ -219,6 +188,16 @@ CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd) {
             cut_QueuePushTest(&localQueue, testId);
         }
     }
+
+    struct cut_SortedTestItem *sortedTests = (struct cut_SortedTestItem *) malloc(sizeof(struct cut_SortedTestItem) * cut_unitTests.size);
+    memset(sortedTests, 0, sizeof(struct cut_SortedTestItem) * cut_unitTests.size);
+
+    for (int testId = 0; testId < cut_unitTests.size; ++testId) {
+        sortedTests[testId].name = cut_unitTests.tests[testId].setup->name;
+        sortedTests[testId].testId = testId;
+    }
+
+    qsort(sortedTests, cut_unitTests.size, sizeof(struct cut_SortedTestItem), cut_SortTestsByName);
 
     struct cut_QueueItem *current = cut_QueuePopTest(&localQueue);
     for (; current; current = cut_QueuePopTest(&localQueue)) {
@@ -276,11 +255,11 @@ CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cu
     shepherd->failed = 0;
     shepherd->points = 0;
     shepherd->maxPoints = 0;
-    shepherd->startTest = (void (*)(struct cut_Shepherd *, int)) cut_ShepherdNoop;
-    shepherd->startSubTests = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;
-    shepherd->startSubTest = (void (*)(struct cut_Shepherd *, int, int)) cut_ShepherdNoop;
-    shepherd->endSubTest = (void (*)(struct cut_Shepherd *, int, int, const struct cut_UnitResult *)) cut_ShepherdNoop;
-    shepherd->endTest = (void (*)(struct cut_Shepherd *, int, const struct cut_UnitResult *)) cut_ShepherdNoop;
+    shepherd->startTest = (void (*)(struct cut_Shepherd *, const struct cut_UnitTest *test)) cut_ShepherdNoop;
+    shepherd->startSubTests = (void (*)(struct cut_Shepherd *, const struct cut_UnitTest *test)) cut_ShepherdNoop;
+    shepherd->startSubTest = (void (*)(struct cut_Shepherd *, const struct cut_UnitTest *test)) cut_ShepherdNoop;
+    shepherd->endSubTest = (void (*)(struct cut_Shepherd *, const struct cut_UnitTest *test)) cut_ShepherdNoop;
+    shepherd->endTest = (void (*)(struct cut_Shepherd *, const struct cut_UnitTest *test)) cut_ShepherdNoop;
     shepherd->finalize = (void (*)(struct cut_Shepherd *)) cut_ShepherdNoop;
     shepherd->clear = (void (*)(struct cut_Shepherd *)) cut_ShepherdNoop;
 

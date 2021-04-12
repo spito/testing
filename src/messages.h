@@ -60,14 +60,9 @@ CUT_PRIVATE int cut_SendLocalMessage(struct cut_Fragment *message) {
     return 1;
 }
 
-CUT_PRIVATE void cut_SendOK(int counter) {
+CUT_PRIVATE void cut_SendOK() {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_OK);
-    int *pCounter = (int *)cut_FragmentReserve(&message, sizeof(int), NULL);
-    if (!pCounter)
-        CUT_DIE("cannot allocate memory ok:fragment:counter");
-    *pCounter = counter;
-
     cut_FragmentSerialize(&message) || CUT_DIE("cannot serialize ok:fragment");
     cut_SendLocalMessage(&message) || CUT_DIE("cannot send ok:message");
     cut_FragmentClear(&message);
@@ -135,7 +130,7 @@ CUT_PRIVATE void cut_Timedout() {
     cut_SendLocalMessage(&message) || CUT_DIE("cannot send timeout:message");
 }
 
-void cut_Subtest(int number, const char *name) {
+void cut_RegisterSubtest(int number, const char *name) {
     struct cut_Fragment message;
     cut_FragmentInit(&message, cut_MESSAGE_SUBTEST);
     int * pNumber = (int *)cut_FragmentReserve(&message, sizeof(int), NULL);
@@ -183,7 +178,7 @@ CUT_PRIVATE int cut_ReadLocalMessage(int pipeRead, struct cut_Fragment *message)
     return toRead != -1;
 }
 
-CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
+CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitTest *test) {
     int repeat;
     do {
         repeat = 0;
@@ -195,8 +190,8 @@ CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
         switch (message.id) {
         case cut_MESSAGE_SUBTEST:
             message.sliceCount == 2 || CUT_DIE("invalid debug:message format");
-            cut_SetSubtestName(
-                result,
+            cut_PrepareSubtests(
+                test,
                 *(int *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL)
             ) || CUT_DIE("cannot set subtest name");
@@ -206,7 +201,7 @@ CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
         case cut_MESSAGE_DEBUG:
             message.sliceCount == 3 || CUT_DIE("invalid debug:message format");
             cut_AddInfo(
-                &result->debug,
+                &test->currentResult->debug,
                 *(unsigned *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
@@ -215,16 +210,14 @@ CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
             break;
 
         case cut_MESSAGE_OK:
-            message.sliceCount == 1 || CUT_DIE("invalid ok:message format");
-            result->subtests = *(int *)cut_FragmentGet(&message, 0, NULL);
-            if (result->status == cut_RESULT_UNKNOWN)
-                result->status = cut_RESULT_OK;
+            message.sliceCount == 0 || CUT_DIE("invalid ok:message format");
+            cut_SetTestOk(test->currentResult);
             break;
 
         case cut_MESSAGE_FAIL:
             message.sliceCount == 3 || CUT_DIE("invalid fail:message format");
             cut_SetFailResult(
-                result,
+                test->currentResult,
                 *(unsigned *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
@@ -234,25 +227,24 @@ CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
         case cut_MESSAGE_EXCEPTION:
             message.sliceCount == 2 || CUT_DIE("invalid exception:message format");
             cut_SetExceptionResult(
-                result,
+                test->currentResult,
                 cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL)
             ) || CUT_DIE("cannot set exception result");
             break;
 
         case cut_MESSAGE_TIMEOUT:
-            result->status = cut_RESULT_TIMED_OUT;
+            test->currentResult->status = cut_RESULT_TIMED_OUT;
             break;
 
         case cut_MESSAGE_CHECK:
             message.sliceCount == 3 || CUT_DIE("invalid check:message format");
-            cut_AddInfo(
-                &result->check,
+            cut_SetCheckResult(
+                test->currentResult,
                 *(unsigned *)cut_FragmentGet(&message, 0, NULL),
                 cut_FragmentGet(&message, 1, NULL),
                 cut_FragmentGet(&message, 2, NULL)
             ) || CUT_DIE("cannot add check");
-            result->status = cut_RESULT_FAILED;
             repeat = 1;
             break;
         }
@@ -261,12 +253,25 @@ CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result) {
     return NULL;
 }
 
-CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name) {
-    result->name = (char *)malloc(strlen(name) + 1);
-    if (!result->name)
+CUT_PRIVATE int cut_PrepareSubtests(struct cut_UnitTest *test, int number, const char *name) {
+    struct cut_UnitResult *results = (struct cut_UnitResult *) realloc(test->results, (number + 1) * sizeof(struct cut_UnitResult));
+    if (!results)
         return 0;
-    result->number = number;
-    strcpy(result->name, name);
+
+    long offset = test->currentResult - test->results;
+    test->results = results;
+    test->currentResult = test->results + offset;
+
+
+    for (int i = test->resultSize; i <= number; ++i) {
+        memset(&results[i], 0, sizeof(results[i]));
+        results[i].id = i;
+        results[i].name = (char *)malloc(strlen(name) + 1);
+        if (!results[i].name)
+            return 0;
+        strcpy(results[i].name, name);
+    }
+    test->resultSize = number + 1;
     return 1;
 }
 
@@ -295,6 +300,17 @@ CUT_PRIVATE int cut_AddInfo(struct cut_Info **info,
     }
     *info = item;
     return 1;
+}
+
+CUT_PRIVATE int cut_SetTestOk(struct cut_UnitResult *result) {
+    if (result->status == cut_RESULT_UNKNOWN)
+        result->status = cut_RESULT_OK;
+}
+
+CUT_PRIVATE int cut_SetCheckResult(struct cut_UnitResult *result,
+                                   unsigned line, const char *file, const char *text) {
+    result->status = cut_RESULT_FAILED;
+    return cut_AddInfo(&result->check, line, file, text);
 }
 
 CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result,

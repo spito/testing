@@ -60,7 +60,6 @@ CUT_NORETURN int cut_ErrorExit(const char *reason, ...) {
     exit(cut_ERROR_EXIT);
 }
 
-
 void cut_Register(struct cut_Setup *setup) {
     if (cut_unitTests.size == cut_unitTests.capacity) {
         cut_unitTests.capacity += 16;
@@ -69,9 +68,17 @@ void cut_Register(struct cut_Setup *setup) {
         if (!cut_unitTests.tests)
             CUT_DIE("cannot allocate memory for unit tests");
     }
-    cut_unitTests.tests[cut_unitTests.size].setup = setup;
-    cut_unitTests.tests[cut_unitTests.size].skipReason = cut_SKIP_REASON_NO_SKIP;
-    memset(&cut_unitTests.tests[cut_unitTests.size].result, 0, sizeof(cut_unitTests.tests[cut_unitTests.size].result));
+    struct cut_UnitTest *test = &cut_unitTests.tests[cut_unitTests.size];
+    test->id = 0;
+    test->setup = setup;
+    test->results = (struct cut_UnitResult *) malloc(sizeof(struct cut_UnitResult));
+    if (!test->results)
+        CUT_DIE("cannot allocate memory for unit tests");
+
+    test->resultSize = 1;
+    test->currentResult = test->results;
+    memset(test->currentResult, 0, sizeof(*test->currentResult));
+
     ++cut_unitTests.size;
 }
 

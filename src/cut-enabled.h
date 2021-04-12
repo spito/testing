@@ -37,14 +37,14 @@
 #define TEST_NEEDS(...) (void)0 ; static const char *cut_needs[] = {"", ## __VA_ARGS__ }; (void)0
 
 #define CUT_APPLY_ARGS(dummy, ...) (void)0, ## __VA_ARGS__ ;
-#define CUT_TEST_NAME(name) cut_Test_ ## name ## _ ## __LINE__
+#define CUT_TEST_NAME(name, line) cut_Test_ ## name ## _ ## line
 
 #define TEST(testName, ...)                                                             \
-    void CUT_TEST_NAME(testName) (int *, int);                                          \
+    void CUT_TEST_NAME(testName, __LINE__) (int , int);                                 \
     CUT_CONSTRUCTOR(cut_Register ## testName) {                                         \
         static struct cut_Setup cut_setup = CUT_SETUP_INIT;                             \
         CUT_APPLY_ARGS(dummy, ## __VA_ARGS__ );                                         \
-        cut_setup.test = CUT_TEST_NAME(testName);                                       \
+        cut_setup.test = CUT_TEST_NAME(testName, __LINE__);                             \
         cut_setup.name = #testName;                                                     \
         cut_setup.file = __FILE__;                                                      \
         cut_setup.line = 0;                                                             \
@@ -52,19 +52,21 @@
         cut_setup.needs = cut_needs;                                                    \
         cut_Register(&cut_setup);                                                       \
     }                                                                                   \
-    void CUT_TEST_NAME(testName) (CUT_UNUSED(int *cut_subtest),                         \
-                               CUT_UNUSED(int cut_current))
+    void CUT_TEST_NAME(testName, __LINE__) (CUT_UNUSED(int cut_subtest),                \
+                                            CUT_UNUSED(int cut_current))
 
 #define SUBTEST(name)                                                                   \
-    if (++*cut_subtest == cut_current)                                                  \
-        cut_Subtest(0, name);                                                           \
-    if (*cut_subtest == cut_current)
+    ++cut_subtest;                                                                      \
+    if (!cut_current)                                                                   \
+        cut_RegisterSubtest(cut_subtest, name);                                         \
+    if (cut_subtest == cut_current)
 
 #define REPEATED_SUBTEST(name, count)                                                   \
-    *cut_subtest = (count);                                                             \
-    if (cut_current && count)                                                           \
-        cut_Subtest(cut_current, name);                                                 \
-    if (cut_current && count)
+    ASSERT(0 < count);                                                                  \
+    cut_subtest += (count);                                                             \
+    if (!cut_current)                                                                   \
+        cut_RegisterSubtest(cut_subtest, name);                                         \
+    if (cut_subtest - (count) < cut_current && cut_current <= cut_subtest)
 
 #define SUBTEST_NO cut_current
 

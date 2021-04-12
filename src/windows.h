@@ -157,7 +157,7 @@ CUT_PRIVATE int cut_ErrorCodeToSignal(DWORD returnCode) {
 }
 
 
-CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest, struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, struct cut_UnitTest *test) {
 
     SECURITY_ATTRIBUTES saAttr;
     saAttr.nLength = sizeof(saAttr);
@@ -180,10 +180,14 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     startInfo.hStdOutput = childOutWrite;
 
     const char *fmtString = "\"%s\" --test %i --subtest %i --timeout %i";
-    int length = snprintf(NULL, 0, fmtString, shepherd->arguments->selfName, testId, subtest,
+    int length = snprintf(NULL, 0, fmtString, shepherd->arguments->selfName,
+                          test->id,
+                          test->currentResult->id,
                           shepherd->arguments->timeout);
     char *command = (char *)malloc(length + 1);
-    sprintf(command, fmtString, shepherd->arguments->selfName, testId, subtest,
+    sprintf(command, fmtString, shepherd->arguments->selfName,
+            test->id,
+            test->currentResult->id,
             shepherd->arguments->timeout);
             
     CreateProcessA(shepherd->arguments->selfName,
@@ -203,7 +207,7 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
 	CloseHandle(childOutWrite) || CUT_DIE("cannot close handle");
 
     int pipeRead = _open_osfhandle((intptr_t)childOutRead, 0);
-    cut_PipeReader(pipeRead, result);
+    cut_PipeReader(pipeRead, test->currentResult);
 
     WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || CUT_DIE("cannot wait for single object");
     DWORD childResult;
@@ -211,13 +215,13 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subt
     CloseHandle(procInfo.hProcess) || CUT_DIE("cannot close handle");
     CloseHandle(procInfo.hThread) || CUT_DIE("cannot close handle");
 
-    result->returnCode = 0;
-    if ((result->signal = cut_ErrorCodeToSignal(childResult))) {
-        result->status = cut_RESULT_SIGNALLED;
+    test->currentResult->returnCode = 0;
+    if ((test->currentResult->signal = cut_ErrorCodeToSignal(childResult))) {
+        test->currentResult->status = cut_RESULT_SIGNALLED;
     }
     else {
-        result->returnCode = childResult;
-        result->status = result->returnCode ? cut_RESULT_RETURNED_NON_ZERO : cut_RESULT_OK;
+        test->currentResult->returnCode = childResult;
+        test->currentResult->status = childResult ? cut_RESULT_RETURNED_NON_ZERO : cut_RESULT_OK;
     }
 
     _close(pipeRead) != -1 || CUT_DIE("cannot close file");

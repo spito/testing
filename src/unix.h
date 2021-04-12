@@ -72,7 +72,7 @@ CUT_PRIVATE void cut_SigAlrm(CUT_UNUSED(int signum)) {
     _exit(cut_NORMAL_EXIT);
 }
 
-CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest, struct cut_UnitResult *result) {
+CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, struct cut_UnitTest *test) {
     int r;
     int pipefd[2];
     r = pipe(pipefd);

@@ -11,7 +11,7 @@ CUT_NS_BEGIN
 #define CUT_MODE_BINARY 1
 
 extern const char *cut_needs[1];
-typedef void(*cut_Instance)(int *, int);
+typedef void(*cut_Instance)(int , int);
 typedef void(*cut_Reporter)(const char *, const char *, unsigned);
 
 struct cut_Setup {
@@ -34,10 +34,10 @@ void cut_Check(const char *text, const char *file, unsigned line);
 void cut_Debug(const char *text, const char *file, unsigned line);
 
 void cut_Register(struct cut_Setup *setup);
+void cut_RegisterSubtest(int number, const char *name);
 void cut_FileCompare(cut_Reporter reporter, FILE *fd, const char *content, int mode, const char *fdStr, const char *file, unsigned line);
 void cut_FormatMessage(cut_Reporter reporter, const char *file, unsigned line, const char *fmt, ...);
 int cut_Input(const char *content);
-void cut_Subtest(int number, const char *name);
 
 CUT_NS_END
 

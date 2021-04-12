@@ -40,17 +40,9 @@ enum cut_ResultStatus {
     cut_RESULT_SKIPPED
 };
 
-enum cut_SkipReason {
-    cut_SKIP_REASON_NO_SKIP = 0,
-    cut_SKIP_REASON_FILTERED_OUT = cut_RESULT_FILTERED_OUT,
-    cut_SKIP_REASON_SUPPRESSED = cut_RESULT_SUPPRESSED,
-    cut_SKIP_REASON_FAILED = cut_RESULT_SKIPPED
-};
-
 struct cut_UnitResult {
     char *name;
-    int number;
-    int subtests;
+    int id;
     enum cut_ResultStatus status;
     char *file;
     unsigned line;
@@ -64,9 +56,11 @@ struct cut_UnitResult {
 };
 
 struct cut_UnitTest {
+    int id;
     struct cut_Setup *setup;
-    struct cut_UnitResult result;
-    enum cut_SkipReason skipReason;
+    int resultSize;
+    struct cut_UnitResult *results;
+    struct cut_UnitResult *currentResult;
 };
 
 struct cut_UnitTestArray {
@@ -138,12 +132,12 @@ struct cut_Shepherd {
 
     const struct cut_Arguments *arguments;
     struct cut_Queue *queuedTests;
-    void (*unitRunner)(struct cut_Shepherd *, int, int, struct cut_UnitResult *);
-    void (*startTest)(struct cut_Shepherd *, int testId);
-    void (*startSubTests)(struct cut_Shepherd *, int testId, int subtests);
-    void (*startSubTest)(struct cut_Shepherd *, int testId, int subtest);
-    void (*endSubTest)(struct cut_Shepherd *, int testId, int subtest, const struct cut_UnitResult *);
-    void (*endTest)(struct cut_Shepherd *, int testId, const struct cut_UnitResult *);
+    void (*unitRunner)(struct cut_Shepherd *, struct cut_UnitTest *test);
+    void (*startTest)(struct cut_Shepherd *, const struct cut_UnitTest *test);
+    void (*startSubTests)(struct cut_Shepherd *, const struct cut_UnitTest *test);
+    void (*startSubTest)(struct cut_Shepherd *, const struct cut_UnitTest *test);
+    void (*endSubTest)(struct cut_Shepherd *, const struct cut_UnitTest *test);
+    void (*endTest)(struct cut_Shepherd *, const struct cut_UnitTest *test);
     void (*finalize)(struct cut_Shepherd *);
     void (*clear)(struct cut_Shepherd *);
 };
@@ -174,15 +168,12 @@ CUT_PRIVATE void cut_ParseArguments(struct cut_Arguments *arguments, int argc, c
 
 // execution
 
-CUT_PRIVATE void cut_ExceptionBypass(int testId, int subtest);
-CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, int testId, int subtest,
-                                     struct cut_UnitResult *result);
-CUT_PRIVATE void cut_RunUnitTest(struct cut_Shepherd *shepherd, struct cut_UnitResult *result, int testId);
+CUT_PRIVATE void cut_ExceptionBypass(struct cut_UnitTest *test);
+CUT_PRIVATE void cut_RunUnitForkless(struct cut_Shepherd *shepherd, struct cut_UnitTest *test);
+CUT_PRIVATE void cut_RunUnitTest(struct cut_Shepherd *shepherd, struct cut_UnitTest *test);
 CUT_PRIVATE void cut_RunUnitTests(struct cut_Shepherd *shepherd);
-CUT_PRIVATE void cut_RunUnitSubTest(struct cut_Shepherd *shepherd, int testId, int subtest);
-CUT_PRIVATE void cut_RunUnitSubTests(struct cut_Shepherd *shepherd, int testId, int subtests);
 
-CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, int testId);
+CUT_PRIVATE int cut_FilterOutUnit(const struct cut_Arguments *arguments, const struct cut_UnitTest *test);
 CUT_PRIVATE void cut_EnqueueTests(struct cut_Shepherd *shepherd);
 CUT_PRIVATE int cut_TestComparator(const void *_lhs, const void *_rhs);
 CUT_PRIVATE void cut_InitShepherd(struct cut_Shepherd *shepherd, const struct cut_Arguments *arguments,
@@ -193,7 +184,7 @@ CUT_PRIVATE int cut_Runner(const struct cut_Arguments *arguments);
 
 // messages
 
-CUT_PRIVATE void cut_SendOK(int counter);
+CUT_PRIVATE void cut_SendOK();
 void cut_DebugMessage(const char *file, unsigned line, const char *fmt, ...);
 void cut_Stop(const char *text, const char *file, unsigned line);
 void cut_Check(const char *text, const char *file, unsigned line);
@@ -201,10 +192,12 @@ void cut_Check(const char *text, const char *file, unsigned line);
 CUT_PRIVATE void cut_StopException(const char *type, const char *text);
 #endif
 CUT_PRIVATE void cut_Timedout();
-void cut_Subtest(int number, const char *name);
-CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitResult *result);
-CUT_PRIVATE int cut_SetSubtestName(struct cut_UnitResult *result, int number, const char *name);
+void cut_RegisterSubtest(int number, const char *name);
+CUT_PRIVATE void *cut_PipeReader(int pipeRead, struct cut_UnitTest *test);
+CUT_PRIVATE int cut_PrepareSubtests(struct cut_UnitTest *test, int number, const char *name);
 CUT_PRIVATE int cut_AddInfo(struct cut_Info **info, unsigned line, const char *file, const char *text);
+CUT_PRIVATE int cut_SetTestOk(struct cut_UnitResult *result);
+CUT_PRIVATE int cut_SetCheckResult(struct cut_UnitResult *result, unsigned line, const char *file, const char *text);
 CUT_PRIVATE int cut_SetFailResult(struct cut_UnitResult *result, unsigned line, const char *file, const char *text);
 CUT_PRIVATE int cut_SetExceptionResult(struct cut_UnitResult *result, const char *type, const char *text);
 
@@ -240,8 +233,7 @@ CUT_PRIVATE int64_t cut_Read(int fd, char *destination, size_t bytes);
 CUT_PRIVATE int64_t cut_Write(int fd, const char *source, size_t bytes);
 
 CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments);
-CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, int testId, int subtest,
-                             struct cut_UnitResult *result);
+CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, struct cut_UnitTest *test);
 
 CUT_PRIVATE int cut_PrintColorized(FILE *output, enum cut_Colors color, const char *text);
 
