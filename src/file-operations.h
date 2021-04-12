@@ -114,4 +114,17 @@ void cut_FileCompare(cut_Reporter reporter, FILE *fd, const char *expected, int 
     free((void *)pack.givenContent);
 }
 
+int cut_Input(const char *content) {
+    size_t remaining = strlen(content);
+    size_t offset = 0;
+
+    int64_t r;
+    while (remaining && (r = cut_Write(0, content + offset, remaining)) > 0) {
+        offset += (size_t)r;
+        remaining -= (size_t)r;
+    }
+    fseek(stdin, 0, SEEK_SET);
+    return r != -1;
+}
+
 #endif
