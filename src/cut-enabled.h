@@ -36,15 +36,16 @@
 #define TEST_SUPPRESS cut_setup.suppress = 1
 #define TEST_NEEDS(...) (void)0 ; static const char *cut_needs[] = {"", ## __VA_ARGS__ }; (void)0
 
-#define CUT_TEST_NAME(name, line) cut_Test_ ## name ## _ ## line
-#define CUT_REGISTER_NAME(name, line) cut_Register_ ## name ## _ ## line
+
+#define CUT_TEST_NAME(name) cut_Test_ ## name
+#define CUT_REGISTER_NAME(name) cut_Register_ ## name
 
 #define TEST(testName, ...)                                                             \
-    void CUT_TEST_NAME(testName, __LINE__) (int , int);                                 \
-    CUT_CONSTRUCTOR(CUT_REGISTER_NAME(testName, __LINE__)) {                            \
+    void CUT_TEST_NAME(testName) (int , int);                                           \
+    CUT_CONSTRUCTOR(CUT_REGISTER_NAME(testName)) {                                      \
         static struct cut_Setup cut_setup = CUT_SETUP_INIT;                             \
         __VA_ARGS__ ;                                                                   \
-        cut_setup.test = CUT_TEST_NAME(testName, __LINE__);                             \
+        cut_setup.test = CUT_TEST_NAME(testName);                                       \
         cut_setup.name = #testName;                                                     \
         cut_setup.file = __FILE__;                                                      \
         cut_setup.line = 0;                                                             \
@@ -52,8 +53,8 @@
         cut_setup.needs = cut_needs;                                                    \
         cut_Register(&cut_setup);                                                       \
     }                                                                                   \
-    void CUT_TEST_NAME(testName, __LINE__) (CUT_UNUSED(int cut_subtest),                \
-                                            CUT_UNUSED(int cut_current))
+    void CUT_TEST_NAME(testName) (CUT_UNUSED(int cut_subtest),                          \
+                                  CUT_UNUSED(int cut_current))
 
 #define SUBTEST(name)                                                                   \
     ++cut_subtest;                                                                      \
