@@ -285,6 +285,11 @@ CUT_PRIVATE void cut_ClearShepherd(struct cut_Shepherd *shepherd) {
     if (shepherd->output != stdout)
         fclose(shepherd->output);
     free(shepherd->arguments->match);
+    for (int i = 0; i < cut_unitTests.size; ++i) {
+        for (int s = 1; s < cut_unitTests.tests[i].resultSize; ++s)
+            free(cut_unitTests.tests[i].results[s].name);
+        free(cut_unitTests.tests[i].results);
+    }
     free(cut_unitTests.tests);
 }
 
