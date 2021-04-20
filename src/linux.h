@@ -142,7 +142,13 @@ CUT_PRIVATE int cut_IsDebugger() {
     if (!buffer)
         return 0;
 
-    found = (char *) memmem(buffer, length, desired, desiredLength);
+    char *content = (char *) realloc(buffer, length + 1);
+    if (content) {
+        buffer = content;
+        buffer[length] = '\0';
+        found = (char *) memmem(buffer, length, desired, desiredLength);
+    }
+
     if (found && desiredLength + 2 <= found - buffer) {
         sscanf(found + desiredLength, "%i", &tracerPid);
     }
