@@ -41,7 +41,7 @@
 #define CUT_REGISTER_NAME(name) cut_Register_ ## name
 
 #define TEST(testName, ...)                                                             \
-    void CUT_TEST_NAME(testName) (int , int);                                           \
+    void CUT_TEST_NAME(testName) (struct cut_Execution);                                \
     CUT_CONSTRUCTOR(CUT_REGISTER_NAME(testName)) {                                      \
         static struct cut_Setup cut_setup = CUT_SETUP_INIT;                             \
         __VA_ARGS__ ;                                                                   \
@@ -53,23 +53,24 @@
         cut_setup.needs = cut_needs;                                                    \
         cut_Register(&cut_setup);                                                       \
     }                                                                                   \
-    void CUT_TEST_NAME(testName) (CUT_UNUSED(int cut_subtest),                          \
-                                  CUT_UNUSED(int cut_current))
+    void CUT_TEST_NAME(testName) (CUT_UNUSED(struct cut_Execution cut_exec))
 
 #define SUBTEST(name)                                                                   \
-    ++cut_subtest;                                                                      \
-    if (!cut_current)                                                                   \
-        cut_RegisterSubtest(cut_subtest, name);                                         \
-    if (cut_subtest == cut_current)
+    cut_exec.offset = cut_exec.subtest;                                                 \
+    ++cut_exec.subtest;                                                                 \
+    if (!cut_exec.current)                                                              \
+        cut_RegisterSubtest(cut_exec.subtest, name);                                    \
+    if (cut_exec.subtest == cut_exec.current)
 
 #define REPEATED_SUBTEST(name, count)                                                   \
     ASSERT(0 < count);                                                                  \
-    cut_subtest += (count);                                                             \
-    if (!cut_current)                                                                   \
-        cut_RegisterSubtest(cut_subtest, name);                                         \
-    if (cut_subtest - (count) < cut_current && cut_current <= cut_subtest)
+    cut_exec.offset = cut_exec.subtest;                                                 \
+    cut_exec.subtest += (count);                                                        \
+    if (!cut_exec.current)                                                              \
+        cut_RegisterSubtest(cut_exec.subtest, name);                                    \
+    if (cut_exec.offset < cut_exec.current && cut_exec.current <= cut_exec.subtest)
 
-#define SUBTEST_NO cut_current
+#define SUBTEST_NO (cut_exec.current - cut_exec.offset)
 
 #define DEBUG_MSG(...) cut_FormatMessage(cut_Debug, __FILE__, __LINE__, __VA_ARGS__)
 

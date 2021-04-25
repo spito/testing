@@ -17,7 +17,8 @@ CUT_PRIVATE void cut_ExceptionBypass(struct cut_UnitTest *test) {
     cut_RedirectIO();
     if (!setjmp(cut_executionPoint)) {
         try {
-            test->setup->test(0, test->currentResult->id);
+            struct cut_Execution exec = {0, test->currentResult->id, 0};
+            test->setup->test(exec);
             cut_SendOK();
         } catch (const std::exception &e) {
             std::string name = typeid(e).name();
@@ -39,7 +40,8 @@ CUT_NS_BEGIN
 CUT_PRIVATE void cut_ExceptionBypass(struct cut_UnitTest *test) {
     cut_RedirectIO();
     if (!setjmp(cut_executionPoint)) {
-        test->setup->test(0, test->currentResult->id);
+        struct cut_Execution exec = {0, test->currentResult->id, 0};
+        test->setup->test(exec);
         cut_SendOK();
     }
 
