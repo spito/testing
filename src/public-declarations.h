@@ -10,8 +10,14 @@ CUT_NS_BEGIN
 #define CUT_MODE_TEXT 0
 #define CUT_MODE_BINARY 1
 
+struct cut_Execution {
+    int subtest;
+    int current;
+    int offset;
+};
+
 extern const char *cut_needs[1];
-typedef void(*cut_Instance)(int , int);
+typedef void(*cut_Instance)(struct cut_Execution);
 typedef void(*cut_Reporter)(const char *, const char *, unsigned);
 
 struct cut_Setup {

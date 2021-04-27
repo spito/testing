@@ -39,11 +39,10 @@ CUT_NORETURN int cut_FatalExit(const char *reason, const char *file, unsigned li
         exit(cut_PANIC);
 
     time_t now = time(NULL);
-    struct tm timeInfo;
-    localtime_r(&now, &timeInfo);
+    struct tm *timeInfo = localtime(&now);
 
     char when[80];
-    strftime(when, sizeof(when), "%F %T", &timeInfo);
+    strftime(when, sizeof(when), "%F %T", timeInfo);
     fprintf(log, "%s | %s (%u) | %s\n", when, file, line, reason);
 
     fclose(log);

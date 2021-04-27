@@ -99,7 +99,9 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
     cut_pipeWrite = _dup(1);
     _setmode(cut_pipeWrite, _O_BINARY);
 
-    cut_ExceptionBypass(arguments->testId, arguments->subtestId);
+    struct cut_UnitTest *test = &cut_unitTests.tests[arguments->testId];
+    test->currentResult->id = arguments->subtestId;
+    cut_ExceptionBypass(test);
 
     _close(cut_pipeWrite) != -1 || CUT_DIE("cannot close file");
 
@@ -111,27 +113,26 @@ CUT_PRIVATE int cut_PreRun(const struct cut_Arguments *arguments) {
 }
 
 CUT_PRIVATE int cut_ErrorCodeToSignal(DWORD returnCode) {
-
-    enum  {
-        SIGHUP = 1,
-        SIGINT, SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT,
-        SIGFPE, SIGKILL, SIGBUS, SIGSEGV, SIGSYS, SIGPIPE,
-        SIGALRM, SIGTERM, SIGUSR1, SIGUSR2
+    enum {
+        W_SIGHUP = 1,
+        W_SIGINT, W_SIGQUIT, W_SIGILL, W_SIGTRAP, W_SIGABRT, W_SIGEMT,
+        W_SIGFPE, W_SIGKILL, W_SIGBUS, W_SIGSEGV, W_SIGSYS, W_SIGPIPE,
+        W_SIGALRM, W_SIGTERM, W_SIGUSR1, W_SIGUSR2
     };
 
     if (0 <= (int)returnCode)
         return 0;
 
-    switch ((returnCode) {
+    switch (returnCode) {
     case EXCEPTION_ACCESS_VIOLATION:
     case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
     case EXCEPTION_GUARD_PAGE:
     case EXCEPTION_STACK_OVERFLOW:
-        return SIGSEGV;
+        return W_SIGSEGV;
 
     case EXCEPTION_BREAKPOINT:
     case STATUS_SINGLE_STEP:
-        return SIGTRAP;
+        return W_SIGTRAP;
 
     case EXCEPTION_FLT_DENORMAL_OPERAND:
     case EXCEPTION_FLT_DIVIDE_BY_ZERO:
@@ -141,15 +142,15 @@ CUT_PRIVATE int cut_ErrorCodeToSignal(DWORD returnCode) {
     case EXCEPTION_FLT_STACK_CHECK:
     case EXCEPTION_FLT_UNDERFLOW:
     case EXCEPTION_INT_DIVIDE_BY_ZERO:
-        return SIGFPE;
+        return W_SIGFPE;
 
     case EXCEPTION_ILLEGAL_INSTRUCTION:
     case EXCEPTION_PRIV_INSTRUCTION:
-        return SIGILL;
+        return W_SIGILL;
 
     case EXCEPTION_IN_PAGE_ERROR:
     case EXCEPTION_INVALID_HANDLE:
-        return SIGBUS;
+        return W_SIGBUS;
 
     default:
         return returnCode;
@@ -204,10 +205,10 @@ CUT_PRIVATE void cut_RunUnit(struct cut_Shepherd *shepherd, struct cut_UnitTest 
 
     AssignProcessToJobObject(cut_jobGroup, procInfo.hProcess) || CUT_DIE("cannot assign process to job object");
     ResumeThread(procInfo.hThread) == 1 || CUT_DIE("cannot resume thread");
-	CloseHandle(childOutWrite) || CUT_DIE("cannot close handle");
+    CloseHandle(childOutWrite) || CUT_DIE("cannot close handle");
 
     int pipeRead = _open_osfhandle((intptr_t)childOutRead, 0);
-    cut_PipeReader(pipeRead, test->currentResult);
+    cut_PipeReader(pipeRead, test);
 
     WaitForSingleObject(procInfo.hProcess, INFINITE) == WAIT_OBJECT_0 || CUT_DIE("cannot wait for single object");
     DWORD childResult;
