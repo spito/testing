@@ -68,8 +68,12 @@ class TestRunner(object):
         ok = len(expected) == len(given) and len(expected) == len([i for i in expected if i in given and expected[i] == given[i]])
 
         if not ok:
-            print(f'Expected: {expected}\n')
-            print(f'Given: {given}\n')
+            print("Python version")
+            print (sys.version)
+            print("Version info.")
+            print (sys.version_info)
+            print(f'Expected: {expected}')
+            print(f'Given: {given}')
 
         return ok
 
