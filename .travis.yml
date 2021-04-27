@@ -3,12 +3,12 @@ compiler:
  - clang
  - gcc
 
- os:
+os:
  - linux
  - osx
 
  script:
  - mkdir build
  - cd build
- - cmake .. 
+ - cmake ..
  - cmake --build . --target check
