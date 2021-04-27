@@ -7,8 +7,8 @@ os:
  - linux
  - osx
 
- script:
- - mkdir build
- - cd build
- - cmake ..
- - cmake --build . --target check
+script:
+- mkdir build
+- cd build
+- cmake ..
+- cmake --build . --target check
