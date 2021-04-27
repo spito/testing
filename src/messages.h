@@ -305,6 +305,7 @@ CUT_PRIVATE int cut_AddInfo(struct cut_Info **info,
 CUT_PRIVATE int cut_SetTestOk(struct cut_UnitResult *result) {
     if (result->status == cut_RESULT_UNKNOWN)
         result->status = cut_RESULT_OK;
+    return 1;
 }
 
 CUT_PRIVATE int cut_SetCheckResult(struct cut_UnitResult *result,
