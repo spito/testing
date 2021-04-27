@@ -10,6 +10,12 @@ import sys
 import platform
 import subprocess
 
+print("Python version")
+print (sys.version)
+print("Version info.")
+print (sys.version_info)
+
+
 TEST_PREFIX = 't-'
 
 class TestRunner(object):
@@ -67,13 +73,9 @@ class TestRunner(object):
 
         ok = len(expected) == len(given) and len(expected) == len([i for i in expected if i in given and expected[i] == given[i]])
 
-        if not ok:
-            print("Python version")
-            print (sys.version)
-            print("Version info.")
-            print (sys.version_info)
-            print(f'Expected: {expected}')
-            print(f'Given: {given}')
+        # if not ok:
+        #     print(f'Expected: {expected}')
+        #     print(f'Given: {given}')
 
         return ok
 
