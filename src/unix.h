@@ -11,7 +11,10 @@
 #include <string.h>
 #include <errno.h>
 
-#include "common-nix.h"
+#include "declarations.h"
+#include "file-operations.h"
+
+#include "common-nix.h" // force
 
 CUT_NS_BEGIN
 

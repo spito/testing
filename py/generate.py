@@ -10,6 +10,7 @@ import re
 import sys
 
 INCLUDE = re.compile('^# *include "(.+\.h)"')
+INCLUDE_FORCE = re.compile('^# *include "(.+\.h)" // force')
 
 class Context(object):
     def __init__(self, path, comment):
@@ -54,6 +55,10 @@ class Context(object):
 
 
 def examineLine(line, context):
+    result = INCLUDE_FORCE.match(line)
+    if result:
+        return (False, result.group(1))
+
     result = INCLUDE.match(line)
     if not result:
         return (False, '')
