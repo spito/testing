@@ -1,6 +1,10 @@
 #ifndef CUT_OS_SPECIFIC_H
 #define CUT_OS_SPECIFIC_H
 
+#if defined(__linux__) || defined(__APPLE__) || defined(__unix)
+# include "common-nix.h"
+#endif
+
 #if defined(__linux__)
 # include "linux-definitions.h"
 #elif defined(__APPLE__)
