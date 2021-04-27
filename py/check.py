@@ -65,10 +65,13 @@ class TestRunner(object):
             expected = {k: v for k, v in enumerate(f.read().splitlines())}
         given = {k: v for k, v in enumerate(output.decode('ascii').splitlines())}
 
-        if len(expected) != len(given):
-            return False
+        ok = len(expected) == len(given) and len(expected) == len([i for i in expected if i in given and expected[i] == given[i]])
 
-        return len(expected) == len([i for i in expected if i in given and expected[i] == given[i]])
+        if not ok:
+            print(f'Expected: {expected}\n')
+            print(f'Given: {given}\n')
+
+        return ok
 
 
 
